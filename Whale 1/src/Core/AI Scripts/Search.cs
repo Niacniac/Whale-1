@@ -133,6 +133,24 @@ public class Search
             }
         }
 
+        // Null move prunning
+        if (depth >= 3 && !moveGenerator.InCheck() && plyFromRoot > 0)
+        {
+            board.MakeNullMove();
+            int evaluation = -SearchMoves(depth - 1 - 2, plyFromRoot + 1, -beta, -alpha);
+            board.UnmakeNullMove();
+
+            if (abortSearch)
+            {
+                return 0;
+            }
+            if (evaluation >= beta)
+            {
+                return beta;
+            }
+        }
+
+
         // Use the transposition table to see if the current position has already been reach
         int ttVal = tTable.LookupEvaluation(depth, plyFromRoot, alpha, beta);
         if (ttVal != TranspositionTable.LookupFailed)
