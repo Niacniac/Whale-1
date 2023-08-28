@@ -134,7 +134,7 @@ public class Search
         }
 
         // Null move prunning
-        if (depth >= 3 && !moveGenerator.InCheck() && plyFromRoot > 0)
+        if (depth >= 3 && !board.IsInCheck() && plyFromRoot > 0)
         {
             board.MakeNullMove();
             int evaluation = -SearchMoves(depth - 1 - 2, plyFromRoot + 1, -beta, -alpha);
