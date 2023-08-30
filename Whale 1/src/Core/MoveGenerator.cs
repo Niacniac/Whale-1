@@ -431,7 +431,7 @@ public class MoveGenerator
         friendlyQueensAttackMap = new ulong[9];
         friendlyRooksAttackMap = new ulong[10];
 
-        int friendlyPawnsCount = 0;
+        // int friendlyPawnsCount = 0;
         int friendlyMinorPiecesCount = 0;
         int friendlyQueensCount = 0;
         int friendlyRooksCount = 0;
