@@ -2,6 +2,7 @@
 public class Evaluation
 {
     Board board;
+    MoveGenerator moveGenerator;
 
     public EvaluationData whiteEval;
     public EvaluationData blackEval;
@@ -16,6 +17,25 @@ public class Evaluation
     static readonly int[] isolatedPawnPenaltyByCount = { 0, -10, -25, -50, -75, -75, -75, -75, -75 };
 
     const float endgameMaterialStart = rookValue * 2 + bishopValue + knightValue;
+
+    static readonly int[] SafetyTable = {
+          0,   0,   1,   2,   3,   5,   7,   9,  12,  15,
+         18,  22,  26,  30,  35,  39,  44,  50,  56,  62,
+         68,  75,  82,  85,  89,  97, 105, 113, 122, 131,
+        140, 150, 169, 180, 191, 202, 213, 225, 237, 248,
+        260, 272, 283, 295, 307, 319, 330, 342, 354, 366,
+        377, 389, 401, 412, 424, 436, 448, 459, 471, 483,
+        494, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+        500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+        500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+        500, 500, 500, 500, 500, 500, 500, 500, 500, 500
+    };
+
+    public Evaluation()
+    {
+        moveGenerator = new MoveGenerator();
+    }
+
     public int Evaluate(Board board)
     {
         this.board = board;
@@ -36,6 +56,9 @@ public class Evaluation
 
         whiteEval.pawnScore = EvaluatePawns(Board.WhiteIndex);
         blackEval.pawnScore = EvaluatePawns(Board.BlackIndex);
+
+        whiteEval.kingAttackScore = EvaluateKingAttack(true);
+        blackEval.kingAttackScore = EvaluateKingAttack(false);
 
         int perspective = board.IsWhiteToMove? 1 : -1;
         // more than 0 good for white, less than 0 good for black
@@ -122,16 +145,53 @@ public class Evaluation
         return bonus + isolatedPawnPenaltyByCount[numIsolatedPawns];
     }
 
+    int EvaluateKingAttack(bool isWhite)
+    {
+        ulong[] kingSafetyMasks = isWhite ?  Bits.BlackKingSafetyMask : Bits.WhiteKingSafetyMask;
+        int kingSquare = isWhite ? board.KingSquare[1] : board.KingSquare[0];
+
+        ulong kingSafetyMask = kingSafetyMasks[kingSquare];
+
+        moveGenerator.GenerateFriendlyAttackMap(board, isWhite);
+        ulong[] friendlyMinorPiecesAttackMap = moveGenerator.friendlyMinorPiecesAttackMap;
+        ulong[] friendlyRookAttackMap = moveGenerator.friendlyRooksAttackMap;
+        ulong[] friendlyQueensAttackMap = moveGenerator.friendlyQueensAttackMap;
+        
+        int attackUnit = 0;
+        attackUnit += GetAttackUnit(friendlyMinorPiecesAttackMap, kingSafetyMask, 2);
+        attackUnit += GetAttackUnit(friendlyRookAttackMap, kingSafetyMask, 3);
+        attackUnit += GetAttackUnit(friendlyQueensAttackMap, kingSafetyMask, 5);
+        
+
+        return SafetyTable[attackUnit];
+    }
+
+    int GetAttackUnit(ulong[] AttackMap, ulong kingMask, int unitPerHit)
+    {
+        int hit = 0;
+        for (int i = 0; i < AttackMap.Length; i++)
+        {
+            ulong value = AttackMap[i] & kingMask;
+            if (value != 0)
+            {
+                hit++;
+            }
+        }
+        return hit * unitPerHit;
+    }
+
+
     public struct EvaluationData
     {
         public int materialScore;
         public int mopUpScore;
         public int pieceSquareScore;
         public int pawnScore;
+        public int kingAttackScore; // Give point if the other king is under attack
 
         public int Sum()
         {
-            return materialScore + mopUpScore + pieceSquareScore + pawnScore;
+            return materialScore + mopUpScore + pieceSquareScore + pawnScore + kingAttackScore;
         }
     }
     MaterialInfo GetMaterialInfo(int colourIndex)
