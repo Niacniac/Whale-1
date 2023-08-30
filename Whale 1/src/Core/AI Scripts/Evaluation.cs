@@ -1,4 +1,4 @@
-
+using System.Numerics;
 public class Evaluation
 {
     Board board;
@@ -159,8 +159,8 @@ public class Evaluation
         
         int attackUnit = 0;
         attackUnit += GetAttackUnit(friendlyMinorPiecesAttackMap, kingSafetyMask, 2);
-        attackUnit += GetAttackUnit(friendlyRookAttackMap, kingSafetyMask, 3);
-        attackUnit += GetAttackUnit(friendlyQueensAttackMap, kingSafetyMask, 5);
+        attackUnit += GetAttackUnit(friendlyRookAttackMap, kingSafetyMask, 4);
+        attackUnit += GetAttackUnit(friendlyQueensAttackMap, kingSafetyMask, 6);
         
 
         return SafetyTable[attackUnit];
@@ -174,7 +174,7 @@ public class Evaluation
             ulong value = AttackMap[i] & kingMask;
             if (value != 0)
             {
-                hit++;
+                hit ++;
             }
         }
         return hit * unitPerHit;

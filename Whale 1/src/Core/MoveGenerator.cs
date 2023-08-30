@@ -83,9 +83,10 @@ public class MoveGenerator
     {
         this.board = board;
         
-        Init();
+        InitAttackMap();
 
         GenerateFriendlyPiecesAttackMap(isWhite);
+
     }
 
     // Note, this will only return correct value after GenerateMoves() has been called in the current position
@@ -120,6 +121,32 @@ public class MoveGenerator
         moveTypeMask = generateQuietMoves ? ulong.MaxValue : enemyPieces;
 
         CalculateAttackData();
+    }
+
+    void InitAttackMap()
+    {
+        // Reset state
+        currMoveIndex = 0;
+        inCheck = false;
+        inDoubleCheck = false;
+        checkRayBitmask = 0;
+        pinRays = 0;
+
+        // Store some info for convenience
+        isWhiteToMove = board.MoveColour == Piece.White;
+        friendlyColour = board.MoveColour;
+        opponentColour = board.OpponentColour;
+        friendlyKingSquare = board.KingSquare[board.MoveColourIndex];
+        friendlyIndex = board.MoveColourIndex;
+        enemyIndex = 1 - friendlyIndex;
+
+        // Store some bitboards for convenience
+        enemyPieces = board.ColourBitboards[enemyIndex];
+        friendlyPieces = board.ColourBitboards[friendlyIndex];
+        allPieces = board.AllPiecesBitboard;
+        emptySquares = ~allPieces;
+        emptyOrEnemySquares = emptySquares | enemyPieces;
+        moveTypeMask = generateQuietMoves ? ulong.MaxValue : enemyPieces;
     }
 
     void GenerateKingMoves(System.Span<Move> moves)
@@ -418,6 +445,7 @@ public class MoveGenerator
         }
 
         // Pawns AttackMap
+        /*
         int pushDir = iswhite ? 1 : -1;
 
         int friendlyPawnPiece = Piece.MakePiece(Piece.Pawn, Colour);
@@ -436,6 +464,7 @@ public class MoveGenerator
             friendlyPawnsAttackMap[friendlyPawnsCount] = captureA | captureB;
             friendlyPawnsCount++;
         }
+        */
 
         // Knights AttackMap
         int friendlyKnightPiece = Piece.MakePiece(Piece.Knight, Colour);

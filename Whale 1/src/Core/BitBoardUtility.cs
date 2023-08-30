@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-
+using System.Diagnostics;
 
 public static class BitBoardUtility
 {
@@ -46,6 +46,7 @@ public static class BitBoardUtility
     }
     public static ulong[] GetIndividualBitBoard(ulong bitBoard) 
     {
+
         ulong[] bitBoardArray = new ulong[64];
         int j = 0;
         for (int i = 0;i < 64; i++)
@@ -58,6 +59,7 @@ public static class BitBoardUtility
             }
         }
         Array.Resize(ref bitBoardArray, j);
+
         return bitBoardArray;
     }
 
