@@ -133,7 +133,6 @@ public class Search
             }
         }
 
-        /*
         // Null move prunning
         if (depth >= 3 && !board.IsInCheck() && plyFromRoot > 0)
         {
@@ -150,7 +149,7 @@ public class Search
                 return beta;
             }
         }
-        */
+
 
         // Use the transposition table to see if the current position has already been reach
         int ttVal = tTable.LookupEvaluation(depth, plyFromRoot, alpha, beta);
