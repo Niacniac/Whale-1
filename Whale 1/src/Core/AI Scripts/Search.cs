@@ -8,7 +8,8 @@ public class Search
     // Constants
     const int transpositionTableSize = 4000;
     const int maxExtentions = 16;
-
+    public int aspirationWindows = 9;
+    public float aspirationWindowsPowerMultiplicator = 0.6f;
     const int immediateMateScore = 100000;
     const int positiveInfinity = 9999999;
     const int negativeInfinity = -positiveInfinity;
