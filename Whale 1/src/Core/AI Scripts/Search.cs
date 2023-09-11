@@ -1,6 +1,7 @@
 using System;
 using static System.Math;
 using Chess;
+using System.Globalization;
 
 public class Search
 {
@@ -312,42 +313,35 @@ public class Search
                 }
             }
 
-            bool needsFullSearch = true;
-            int eval = 0;
-            int reduction = 0;
+
             // PV Search
+            int eval = 0;
             if (i == 0)
             {
                 eval = -SearchMoves(depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, numExtensions + extension, moves[i], isCapture);
             }
             else
             {
-
-
-
-
-            }
-
-
-            // Late Move Reductions:
-            // Reduce the depth of the search for moves later in the move list as these are less likely to be good
-            // (assuming our move ordering is doing a good job)
-
-            if (i >= 3 && extension == 0 && depth >= 3 && !isCapture)
-            {
+                // Late move reduction
+                int reduction = 0;
                 
-                eval = -SearchMoves(depth - 1 - reduceDepth, plyFromRoot + 1, -alpha - 1, -alpha, numExtensions, moves[i], isCapture);
-                // If the evaluation turns out to be better than anything we've found so far, we'll need to redo the
-                // search at the full depth to get a more accurate result. Note: this does introduce some danger that
-                // we might miss a good move if the reduced search cannot see that it is good, but the idea is for
-                // the increased search speed to outweigh these occasional errors.
-                needsFullSearch = eval > alpha;
-            }
+                if (depth >= 2 && !isCapture && extension == 0 && i > 3)
+                {
+                    if (depth <= 6)
+                    {
+                        reduction = 1;
+                    }
+                    else
+                    {
+                        reduction = depth / 3;
+                    }
 
-            // Full depth search
-            if (needsFullSearch)
-            {
-                eval = -SearchMoves(depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, numExtensions + extension, moves[i], isCapture);
+                }
+                eval = -SearchMoves(depth - 1 - reduction, plyFromRoot + 1, -alpha - 1, -alpha, numExtensions, moves[i], isCapture);
+                if (eval > alpha)
+                {
+                    eval = -SearchMoves(depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, numExtensions + extension, moves[i], isCapture);
+                }
             }
 
             board.UnmakeMove(moves[i], true);
