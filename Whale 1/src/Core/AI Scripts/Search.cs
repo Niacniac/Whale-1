@@ -33,6 +33,7 @@ public class Search
     bool abortSearch;
     int[] pvLength;
     Move[,] pvTable;
+    int LastIterationEval; // Used in case where there is no move inside the aspiration windows
 
     // References
     Board board;
@@ -63,8 +64,8 @@ public class Search
 
         moveGenerator.promotionsToGenerate = MoveGenerator.PromotionMode.All;
 
-        pvLength = new int[64];
-        pvTable = new Move[64, 64];
+        pvLength = new int[272];
+        pvTable = new Move[272, 272];
 
         SearchMoves(1, 0, negativeInfinity, positiveInfinity);
     }
@@ -122,13 +123,19 @@ public class Search
 
     void RunIterativeDeepeningSearch()
     {
+        int a = negativeInfinity;
+        int b = positiveInfinity;
+        int alphaAspirationWindowsFailed = 0;
+        int betaAspirationWindowsFailed = 0;
+
         for (int searchDepth = 1; searchDepth <= 256; searchDepth++)
         {
             hasSearchedAtLeastOneMove = false;
             debugInfo += "\nStarting Iteration: " + searchDepth;
             searchIterationTimer.Restart();
             currentIterationDepth = searchDepth;
-            SearchMoves(searchDepth, 0, negativeInfinity, positiveInfinity);
+
+            LastIterationEval = SearchMoves(searchDepth, 0, a, b);
 
             if (abortSearch)
             {
@@ -147,6 +154,35 @@ public class Search
             }
             else
             {
+                int alphaIncrement;
+                int betaIncrement;
+                if (LastIterationEval <= a || LastIterationEval >= b)
+                {
+                    if (LastIterationEval <= a)
+                    {
+                        alphaAspirationWindowsFailed++;
+                    }
+                    else
+                    {
+                        betaAspirationWindowsFailed++;
+                    }
+                    alphaIncrement = (int)Pow(aspirationWindows, (alphaAspirationWindowsFailed + 1) * aspirationWindowsPowerMultiplicator);
+                    betaIncrement = (int)Pow(aspirationWindows, (betaAspirationWindowsFailed + 1) * aspirationWindowsPowerMultiplicator);
+                    a = LastIterationEval - alphaIncrement;
+                    b = LastIterationEval + betaIncrement;
+                    searchDepth--;
+
+                    continue;
+                }
+
+                alphaAspirationWindowsFailed = 0;
+                betaAspirationWindowsFailed = 0;
+                alphaIncrement = (int)Pow(aspirationWindows, (alphaAspirationWindowsFailed + 1) * aspirationWindowsPowerMultiplicator);
+                betaIncrement = (int)Pow(aspirationWindows, (betaAspirationWindowsFailed + 1) * aspirationWindowsPowerMultiplicator);
+                a = bestEvalThisIteration - alphaIncrement;
+                b = bestEvalThisIteration + betaIncrement;
+
+
                 currentDepth = searchDepth;
                 bestMove = bestMoveThisIteration;
                 bestEval = bestEvalThisIteration;
