@@ -314,6 +314,20 @@ public class Search
 
             bool needsFullSearch = true;
             int eval = 0;
+            int reduction = 0;
+            // PV Search
+            if (i == 0)
+            {
+                eval = -SearchMoves(depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, numExtensions + extension, moves[i], isCapture);
+            }
+            else
+            {
+
+
+
+
+            }
+
 
             // Late Move Reductions:
             // Reduce the depth of the search for moves later in the move list as these are less likely to be good
@@ -321,7 +335,7 @@ public class Search
 
             if (i >= 3 && extension == 0 && depth >= 3 && !isCapture)
             {
-                const int reduceDepth = 1;
+                
                 eval = -SearchMoves(depth - 1 - reduceDepth, plyFromRoot + 1, -alpha - 1, -alpha, numExtensions, moves[i], isCapture);
                 // If the evaluation turns out to be better than anything we've found so far, we'll need to redo the
                 // search at the full depth to get a more accurate result. Note: this does introduce some danger that
