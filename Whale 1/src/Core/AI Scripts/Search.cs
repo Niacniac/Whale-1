@@ -261,7 +261,7 @@ public class Search
 
         
         // Null move prunning
-        if (depth >= 3 && !board.IsInCheck() && plyFromRoot > 0)
+        if (depth >= 3 && !board.IsInCheck() && plyFromRoot > 0 && doNull)
         {
             board.MakeNullMove();
             int R = depth > 6 ? maxNullMoveR : minNullMoveR;
@@ -352,7 +352,7 @@ public class Search
 
 
             // PV Search
-            int eval = 0;
+            int eval;
             if (i == 0)
             {
                 eval = -SearchMoves(depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, numExtensions + extension, moves[i], isCapture);
