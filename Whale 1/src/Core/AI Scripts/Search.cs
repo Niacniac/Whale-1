@@ -12,6 +12,10 @@ public class Search
     const int positiveInfinity = 9999999;
     const int negativeInfinity = -positiveInfinity;
 
+    const int maxNullMoveR = 4;
+    const int minNullMoveR = 4;
+    const int nullMoveDepthReduction = 4;
+
     public event Action<Move>? OnSearchComplete;
 
     // State
@@ -105,7 +109,90 @@ public class Search
         abortSearch = true;
     }
 
-    int SearchMoves(int depth, int plyFromRoot, int alpha, int beta, int numExtensions = 0, Move prevMove = default, bool prevWasCapture = false)
+   
+
+
+    public static bool IsMateScore(int score)
+    {
+        const int maxMateDepth = 1000;
+        return Abs(score) > immediateMateScore - maxMateDepth;
+    }
+
+    void RunIterativeDeepeningSearch()
+    {
+        for (int searchDepth = 1; searchDepth <= 256; searchDepth++)
+        {
+            hasSearchedAtLeastOneMove = false;
+            debugInfo += "\nStarting Iteration: " + searchDepth;
+            searchIterationTimer.Restart();
+            currentIterationDepth = searchDepth;
+            SearchMoves(searchDepth, 0, negativeInfinity, positiveInfinity);
+
+            if (abortSearch)
+            {
+                if (hasSearchedAtLeastOneMove)
+                {
+                    bestMove = bestMoveThisIteration;
+                    bestEval = bestEvalThisIteration;
+                    searchDiagnostics.move = MoveUtility.GetMoveNameUCI(bestMove);
+                    searchDiagnostics.eval = bestEval;
+                    searchDiagnostics.moveIsFromPartialSearch = true;
+                    debugInfo += "\nUsing partial search result: " + MoveUtility.GetMoveNameUCI(bestMove) + " Eval: " + bestEval;
+
+                }
+                debugInfo += "\nSearch aborted";
+                break;
+            }
+            else
+            {
+                currentDepth = searchDepth;
+                bestMove = bestMoveThisIteration;
+                bestEval = bestEvalThisIteration;
+
+                string pvLineName = "";
+                for (int count = 0; count < pvLength[0]; count++)
+                {
+                    pvLineName += MoveUtility.GetMoveNameUCI(pvTable[0, count]).Replace("=", "") + " ";
+                }
+
+                searchIterationTimer.Stop();
+                var timeElapsedInIteration = searchIterationTimer.Elapsed;
+                var totalElapsedTime = searchTotalTimer.Elapsed;
+                float totalElapsedTimeSecond = totalElapsedTime.Seconds + totalElapsedTime.Milliseconds/1000f;
+                float nps = searchDiagnostics.numNodes / totalElapsedTimeSecond;
+                if(nps > Int32.MaxValue || nps != nps)
+                {
+                    nps = 0f;
+                }
+                int nodesPerSecond = Convert.ToInt32(nps);
+                Console.WriteLine($"info depth {currentDepth} score cp {bestEval} nodes {searchDiagnostics.numNodes} nps {nodesPerSecond} time {timeElapsedInIteration.Milliseconds + timeElapsedInIteration.Seconds*1000} pv {pvLineName}");
+                // Update diagnostics
+                debugInfo += "\nIteration result: " + MoveUtility.GetMoveNameUCI(bestMove) + " Eval: " + bestEval;
+                if (IsMateScore(bestEval))
+                {
+                    debugInfo += " Mate in ply: " + NumPlyToMateFromScore(bestEval);
+                }
+                bestEvalThisIteration = int.MinValue;
+                bestMoveThisIteration = Move.NullMove;
+
+                // Update diagnostics
+                searchDiagnostics.numCompletedIterations = searchDepth;
+                searchDiagnostics.move = MoveUtility.GetMoveNameUCI(bestMove);
+                searchDiagnostics.eval = bestEval;
+                // Exit search if found a mate within search depth.
+                // A mate found outside of search depth (due to extensions) may not be the fastest mate.
+                if (IsMateScore(bestEval) && NumPlyToMateFromScore(bestEval) <= searchDepth)
+                {
+                    debugInfo += "\nExitting search due to mate found within search depth";
+                    break;
+                }
+            }
+        }
+    }
+
+
+    // Main search function
+    int SearchMoves(int depth, int plyFromRoot, int alpha, int beta, int numExtensions = 0, Move prevMove = default, bool prevWasCapture = false, bool doNull = true)
     {
         if (abortSearch)
         {
@@ -133,11 +220,13 @@ public class Search
             }
         }
 
+        
         // Null move prunning
         if (depth >= 3 && !board.IsInCheck() && plyFromRoot > 0)
         {
             board.MakeNullMove();
-            int evaluation = -SearchMoves(depth - 1 - 2, plyFromRoot + 1, -beta, -alpha);
+            int R = depth > 6 ? maxNullMoveR : minNullMoveR;
+            int evaluation = -SearchMoves(depth - R - 1, plyFromRoot + 1, -beta, -beta + 1, default, default, default, false);
             board.UnmakeNullMove();
 
             if (abortSearch)
@@ -146,10 +235,14 @@ public class Search
             }
             if (evaluation >= beta)
             {
-                return beta;
+                depth -= nullMoveDepthReduction;
+                if (depth <= 0)
+                {
+                    return QuiescenceSearch(alpha, beta, plyFromRoot);
+                }
             }
         }
-
+        
 
         // Use the transposition table to see if the current position has already been reach
         int ttVal = tTable.LookupEvaluation(depth, plyFromRoot, alpha, beta);
@@ -164,9 +257,9 @@ public class Search
             return ttVal;
         }
 
-        if (depth == 0)
+        if (depth <= 0)
         {
-            int evaluation = QuiescenceSearch(alpha, beta, plyFromRoot); 
+            int evaluation = QuiescenceSearch(alpha, beta, plyFromRoot);
             return evaluation;
         }
 
@@ -174,7 +267,7 @@ public class Search
         moveGenerator.GenerateMoves(board, ref moves, capturesOnly: false);
         Move prevBestMove = plyFromRoot == 0 ? bestMove : tTable.GetStoredMove();
         moveOrdering.OrderMoves(prevBestMove, board, moves, moveGenerator.opponentAttackMap, moveGenerator.opponentPawnAttackMap, false, plyFromRoot);
-        if (moves.Length == 0) 
+        if (moves.Length == 0)
         {
             if (moveGenerator.InCheck())
             {
@@ -196,7 +289,7 @@ public class Search
         int evalType = TranspositionTable.UpperBound;
         Move bestMoveInThisPosition = Move.NullMove;
 
-        for (int i = 0;i < moves.Length; i++)
+        for (int i = 0; i < moves.Length; i++)
         {
             int capturedPieceType = Piece.PieceType(board.Square[moves[i].TargetSquare]);
             bool isCapture = capturedPieceType != Piece.None;
@@ -288,9 +381,9 @@ public class Search
                 for (int nextPly = plyFromRoot + 1; nextPly < pvLength[plyFromRoot + 1]; nextPly++)
                 {
                     // copy move from deeper ply into current ply's line
-                    pvTable[plyFromRoot, nextPly] = pvTable[plyFromRoot + 1 , nextPly];
+                    pvTable[plyFromRoot, nextPly] = pvTable[plyFromRoot + 1, nextPly];
                 }
-                pvLength[plyFromRoot] = pvLength[plyFromRoot + 1 ];
+                pvLength[plyFromRoot] = pvLength[plyFromRoot + 1];
 
                 if (plyFromRoot == 0)
                 {
@@ -310,85 +403,6 @@ public class Search
         tTable.StoreEvaluation(depth, plyFromRoot, alpha, evalType, bestMoveInThisPosition);
 
         return alpha;
-    }
-
-
-    public static bool IsMateScore(int score)
-    {
-        const int maxMateDepth = 1000;
-        return Abs(score) > immediateMateScore - maxMateDepth;
-    }
-
-    void RunIterativeDeepeningSearch()
-    {
-        for (int searchDepth = 1; searchDepth <= 256; searchDepth++)
-        {
-            hasSearchedAtLeastOneMove = false;
-            debugInfo += "\nStarting Iteration: " + searchDepth;
-            searchIterationTimer.Restart();
-            currentIterationDepth = searchDepth;
-            SearchMoves(searchDepth, 0, negativeInfinity, positiveInfinity);
-
-            if (abortSearch)
-            {
-                if (hasSearchedAtLeastOneMove)
-                {
-                    bestMove = bestMoveThisIteration;
-                    bestEval = bestEvalThisIteration;
-                    searchDiagnostics.move = MoveUtility.GetMoveNameUCI(bestMove);
-                    searchDiagnostics.eval = bestEval;
-                    searchDiagnostics.moveIsFromPartialSearch = true;
-                    debugInfo += "\nUsing partial search result: " + MoveUtility.GetMoveNameUCI(bestMove) + " Eval: " + bestEval;
-
-                }
-                debugInfo += "\nSearch aborted";
-                break;
-            }
-            else
-            {
-                currentDepth = searchDepth;
-                bestMove = bestMoveThisIteration;
-                bestEval = bestEvalThisIteration;
-
-                string pvLineName = "";
-                for (int count = 0; count < pvLength[0]; count++)
-                {
-                    pvLineName += MoveUtility.GetMoveNameUCI(pvTable[0, count]).Replace("=", "") + " ";
-                }
-
-                searchIterationTimer.Stop();
-                var timeElapsedInIteration = searchIterationTimer.Elapsed;
-                var totalElapsedTime = searchTotalTimer.Elapsed;
-                float totalElapsedTimeSecond = totalElapsedTime.Seconds + totalElapsedTime.Milliseconds/1000f;
-                float nps = searchDiagnostics.numNodes / totalElapsedTimeSecond;
-                if(nps > Int32.MaxValue || nps != nps)
-                {
-                    nps = 0f;
-                }
-                int nodesPerSecond = Convert.ToInt32(nps);
-                Console.WriteLine($"info depth {currentDepth} score cp {bestEval} nodes {searchDiagnostics.numNodes} nps {nodesPerSecond} time {timeElapsedInIteration.Milliseconds + timeElapsedInIteration.Seconds*1000} pv {pvLineName}");
-                // Update diagnostics
-                debugInfo += "\nIteration result: " + MoveUtility.GetMoveNameUCI(bestMove) + " Eval: " + bestEval;
-                if (IsMateScore(bestEval))
-                {
-                    debugInfo += " Mate in ply: " + NumPlyToMateFromScore(bestEval);
-                }
-                bestEvalThisIteration = int.MinValue;
-                bestMoveThisIteration = Move.NullMove;
-
-                // Update diagnostics
-                searchDiagnostics.numCompletedIterations = searchDepth;
-                searchDiagnostics.move = MoveUtility.GetMoveNameUCI(bestMove);
-                searchDiagnostics.eval = bestEval;
-                // Exit search if found a mate within search depth.
-                // A mate found outside of search depth (due to extensions) may not be the fastest mate.
-                if (IsMateScore(bestEval) && NumPlyToMateFromScore(bestEval) <= searchDepth)
-                {
-                    debugInfo += "\nExitting search due to mate found within search depth";
-                    break;
-                }
-            }
-        }
     }
 
     // Search to a further depth until a stable position is reached (stable means no capture left)
