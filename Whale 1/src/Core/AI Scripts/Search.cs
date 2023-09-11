@@ -298,8 +298,7 @@ public class Search
 
         if (depth <= 0)
         {
-            int evaluation = QuiescenceSearch(alpha, beta, plyFromRoot);
-            return evaluation;
+            return QuiescenceSearch(alpha, beta, plyFromRoot);
         }
 
         Span<Move> moves = stackalloc Move[MoveGenerator.MaxMoves];
