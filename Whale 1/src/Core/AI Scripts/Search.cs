@@ -190,6 +190,7 @@ public class Search
         }
     }
 
+    
 
     // Main search function
     int SearchMoves(int depth, int plyFromRoot, int alpha, int beta, int numExtensions = 0, Move prevMove = default, bool prevWasCapture = false, bool doNull = true)
@@ -226,7 +227,7 @@ public class Search
         {
             board.MakeNullMove();
             int R = depth > 6 ? maxNullMoveR : minNullMoveR;
-            int evaluation = -SearchMoves(depth - R - 1, plyFromRoot + 1, -beta, -beta + 1, default, default, default, false);
+            int evaluation = -SearchMoves(depth - R - 1, plyFromRoot + 1, -beta, -beta + 1, doNull:false);
             board.UnmakeNullMove();
 
             if (abortSearch)
