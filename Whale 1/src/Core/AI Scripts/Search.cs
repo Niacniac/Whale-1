@@ -34,6 +34,7 @@ public class Search
     int[] pvLength;
     Move[,] pvTable;
     int LastIterationEval; // Used in case where there is no move inside the aspiration windows
+    ushort age;
 
     // References
     Board board;
@@ -66,6 +67,7 @@ public class Search
 
         pvLength = new int[272];
         pvTable = new Move[272, 272];
+        age = 0;
 
         SearchMoves(1, 0, negativeInfinity, positiveInfinity);
     }
@@ -91,7 +93,7 @@ public class Search
 
         // Iterative deepening
         RunIterativeDeepeningSearch();
-        
+        age++;
 
 
         if (bestMove.IsNull)
@@ -128,7 +130,7 @@ public class Search
         int alphaAspirationWindowsFailed = 0;
         int betaAspirationWindowsFailed = 0;
 
-        for (int searchDepth = 1; searchDepth <= 256; searchDepth++)
+        for (int searchDepth = 1; searchDepth <= 220; searchDepth++)
         {
             hasSearchedAtLeastOneMove = false;
             debugInfo += "\nStarting Iteration: " + searchDepth;
@@ -390,7 +392,7 @@ public class Search
 
             if (eval >= beta)
             {
-                tTable.StoreEvaluation(depth, plyFromRoot, beta, TranspositionTable.LowerBound, moves[i]);
+                tTable.StoreEvaluation(depth, plyFromRoot, beta, TranspositionTable.LowerBound, moves[i], age);
 
                 // Update killer moves and history heuristic (note: don't include captures as theres are ranked highly anyway)
                 if (!isCapture)
@@ -445,7 +447,7 @@ public class Search
         }
 
 
-        tTable.StoreEvaluation(depth, plyFromRoot, alpha, evalType, bestMoveInThisPosition);
+        tTable.StoreEvaluation(depth, plyFromRoot, alpha, evalType, bestMoveInThisPosition, age);
 
         return alpha;
     }
@@ -492,7 +494,7 @@ public class Search
 
             if (eval >= beta)
             {
-                tTable.StoreEvaluation(0, plyFromRoot, beta, TranspositionTable.LowerBound, moves[i]);
+                tTable.StoreEvaluation(0, plyFromRoot, beta, TranspositionTable.LowerBound, moves[i], age);
                 searchDiagnostics.numCutOffs++;
                 return beta;
             }
@@ -502,7 +504,7 @@ public class Search
                 alpha = eval;
             }
         }
-        tTable.StoreEvaluation(0, plyFromRoot, alpha, evalType, Move.NullMove);
+        tTable.StoreEvaluation(0, plyFromRoot, alpha, evalType, Move.NullMove, age);
 
         return alpha;
     }
@@ -518,6 +520,7 @@ public class Search
     {
         tTable.Clear();
         moveOrdering.ClearKillers();
+        age = 0;
     }
 
     [Serializable]

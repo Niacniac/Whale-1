@@ -102,7 +102,7 @@ public class TranspositionTable
         return LookupFailed;
     }
 
-    public void StoreEvaluation(int depth, int numPlySearched, int eval, int evalType, Move move)
+    public void StoreEvaluation(int depth, int numPlySearched, int eval, int evalType, Move move, ushort age)
     {
         if (!enabled)
         {
@@ -110,10 +110,20 @@ public class TranspositionTable
         }
         ulong index = Index;
 
-        //if (depth >= entries[Index].depth) {
-        Entry entry = new Entry(board.ZobristKey, CorrectMateScoreForStorage(eval, numPlySearched), (byte)depth, (byte)evalType, move);
-        entries[Index] = entry;
-        //}
+        if (depth >= entries[Index].depth || age > entries[Index].age) 
+        {
+            int score = CorrectMateScoreForStorage(eval, numPlySearched);
+
+
+            ulong smp_data = Entry.GetData(CorrectMateScoreForStorage(eval, numPlySearched), move, (byte)depth, (byte)evalType);
+            ulong smp_key = board.ZobristKey ^ smp_data;
+
+
+
+            Entry entry = new Entry(board.ZobristKey, score, (byte)depth, (byte)evalType, move, age, smp_data,smp_key);
+            entries[Index] = entry;
+            VerifyEntry(entry);
+        }
     }
 
     int CorrectMateScoreForStorage(int score, int numPlySearched)
@@ -136,6 +146,25 @@ public class TranspositionTable
         return score;
     }
 
+    public void VerifyEntry(Entry entry)
+    {
+        ulong data = Entry.GetData(entry.value, entry.move, entry.depth, entry.nodeType);
+        ulong key = entry.key ^ data;
+
+        if (data != entry.SMP_data) { throw new Exception("Data error");}
+        if (key != entry.SMP_key) { throw new Exception("key error");}
+
+        int value; Move move; byte depth; byte nodeType;
+        Entry.RecoverData(data, out value, out move, out depth, out nodeType);
+
+        if (value != entry.value) { throw new Exception("value error"); }
+        if (!Move.SameMove(move,entry.move)) { throw new Exception("move error"); }
+        if (depth != entry.depth) { throw new Exception("depth error"); }
+        if (nodeType != entry.nodeType) { throw new Exception("node error"); }
+
+
+    }
+
     public Entry GetEntry(ulong zobristKey)
     {
         return entries[zobristKey % (ulong)entries.Length];
@@ -143,27 +172,49 @@ public class TranspositionTable
 
     public readonly struct Entry
     {
-
+        public readonly ulong SMP_data;
+        public readonly ulong SMP_key;
         public readonly ulong key;
         public readonly int value;
         public readonly Move move;
         public readonly byte depth;
         public readonly byte nodeType;
+        public readonly ushort age;
 
         //	public readonly byte gamePly;
 
-        public Entry(ulong key, int value, byte depth, byte nodeType, Move move)
+        public Entry(ulong key, int value, byte depth, byte nodeType, Move move, ushort age, ulong SMP_data, ulong SMP_key)
         {
+            this.SMP_data = SMP_data;
+            this.SMP_key = SMP_key;
             this.key = key;
             this.value = value;
             this.depth = depth; // depth is how many ply were searched ahead from this position
             this.nodeType = nodeType;
             this.move = move;
+            this.age = age;
         }
 
         public static int GetSize()
         {
             return System.Runtime.InteropServices.Marshal.SizeOf<Entry>();
         }
+
+        public static ulong GetData(int value, Move move, byte depth, byte nodeType)
+        {
+            return ((uint)value) | (((ulong)move.Value) << 32) | ((ulong)depth << 48) | ((ulong)nodeType << 56);
+        }
+
+        public static void RecoverData(ulong data, out int value, out Move move, out byte depth, out byte nodeType)
+        {
+            value = (int)(data & 0xFFFFFFFF);
+            move = new Move((ushort)((data >> 32) & 0xFFFF));
+            depth = (byte)((data >> 48) & 0xFF);
+            nodeType = (byte)((data >> 56) & 0xFF);
+  
+        }
     }
+
+
+
 }
