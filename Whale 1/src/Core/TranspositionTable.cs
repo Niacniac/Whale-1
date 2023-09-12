@@ -110,10 +110,11 @@ public class TranspositionTable
         }
         ulong index = Index;
 
-        //if (depth >= entries[Index].depth) {
+        if (depth >= entries[Index].depth) 
+        {
         Entry entry = new Entry(board.ZobristKey, CorrectMateScoreForStorage(eval, numPlySearched), (byte)depth, (byte)evalType, move);
         entries[Index] = entry;
-        //}
+        }
     }
 
     int CorrectMateScoreForStorage(int score, int numPlySearched)

@@ -282,7 +282,7 @@ public class Search
             }
         }
         
-
+        
         // Use the transposition table to see if the current position has already been reach
         int ttVal = tTable.LookupEvaluation(depth, plyFromRoot, alpha, beta);
         if (ttVal != TranspositionTable.LookupFailed)
