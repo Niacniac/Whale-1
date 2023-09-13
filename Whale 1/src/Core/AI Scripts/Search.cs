@@ -203,7 +203,7 @@ public class Search
                     nps = 0f;
                 }
                 int nodesPerSecond = Convert.ToInt32(nps);
-                Console.WriteLine($"info depth {currentDepth} score cp {bestEval} nodes {searchDiagnostics.numNodes} nps {nodesPerSecond} time {timeElapsedInIteration.Milliseconds + timeElapsedInIteration.Seconds*1000} pv {pvLineName} totaltime {totalElapsedTimeSecond * 1000 + totalElapsedTime.Milliseconds}");
+                Console.WriteLine($"info depth {currentDepth} score cp {bestEval} nodes {searchDiagnostics.numNodes} nps {nodesPerSecond} time {timeElapsedInIteration.Milliseconds + timeElapsedInIteration.Seconds*1000} pv {pvLineName} totaltime {totalElapsedTimeSecond * 1000 + totalElapsedTime.Milliseconds} tthit {searchDiagnostics.tthit} Cutoffs {searchDiagnostics.numCutOffs}");
                 // Update diagnostics
                 debugInfo += "\nIteration result: " + MoveUtility.GetMoveNameUCI(bestMove) + " Eval: " + bestEval;
                 if (IsMateScore(bestEval))
@@ -293,6 +293,7 @@ public class Search
                 bestEvalThisIteration = tTable.entries[tTable.Index].value;
                 //Debug.Log ("move retrieved " + bestMoveThisIteration.Name + " Node type: " + tt.entries[tt.Index].nodeType + " depth: " + tt.entries[tt.Index].depth);
             }
+            searchDiagnostics.tthit++;
             return ttVal;
         }
 
@@ -462,6 +463,7 @@ public class Search
         int ttVal = tTable.LookupEvaluation(0, plyFromRoot, alpha, beta);
         if (ttVal != TranspositionTable.LookupFailed)
         {
+            searchDiagnostics.tthit++;
             return ttVal;
         }
 
@@ -527,6 +529,7 @@ public class Search
         public int numPositionsEvaluated;
         public int numNodes;
         public ulong numCutOffs;
+        public int tthit;
 
         public string moveVal;
         public string move;
