@@ -34,7 +34,7 @@ public class Search
     int[] pvLength;
     Move[,] pvTable;
     int LastIterationEval; // Used in case where there is no move inside the aspiration windows
-    ushort age;
+    uint age;
 
     // References
     Board board;
@@ -59,7 +59,7 @@ public class Search
 
         evaluation = new Evaluation();
         moveGenerator = new MoveGenerator();
-        tTable = new TranspositionTable(board, transpositionTableSize);
+        tTable = new TranspositionTable(transpositionTableSize);
         moveOrdering = new MoveOrdering(moveGenerator, tTable);
         repetitionTable = new RepetitionTable();
 
@@ -93,7 +93,7 @@ public class Search
 
         // Iterative deepening
         RunIterativeDeepeningSearch();
-        age++;
+
 
 
         if (bestMove.IsNull)
@@ -156,6 +156,8 @@ public class Search
             }
             else
             {
+                age++;
+
                 int alphaIncrement;
                 int betaIncrement;
                 if (LastIterationEval <= a || LastIterationEval >= b)
@@ -188,7 +190,7 @@ public class Search
                 currentDepth = searchDepth;
                 bestMove = bestMoveThisIteration;
                 bestEval = bestEvalThisIteration;
-
+                
                 string pvLineName = "";
                 for (int count = 0; count < pvLength[0]; count++)
                 {
@@ -286,13 +288,13 @@ public class Search
         
         
         // Use the transposition table to see if the current position has already been reach
-        int ttVal = tTable.LookupEvaluation(depth, plyFromRoot, alpha, beta);
+        int ttVal = tTable.LookupEvaluation(board, depth, plyFromRoot, alpha, beta);
         if (ttVal != TranspositionTable.LookupFailed)
         {
             if (plyFromRoot == 0)
             {
-                bestMoveThisIteration = tTable.GetStoredMove();
-                bestEvalThisIteration = tTable.entries[tTable.Index].value;
+                bestMoveThisIteration = tTable.GetStoredMove(board);
+                bestEvalThisIteration = tTable.GetStoredScore(board);
                 //Debug.Log ("move retrieved " + bestMoveThisIteration.Name + " Node type: " + tt.entries[tt.Index].nodeType + " depth: " + tt.entries[tt.Index].depth);
             }
             return ttVal;
@@ -305,7 +307,7 @@ public class Search
 
         Span<Move> moves = stackalloc Move[MoveGenerator.MaxMoves];
         moveGenerator.GenerateMoves(board, ref moves, capturesOnly: false);
-        Move prevBestMove = plyFromRoot == 0 ? bestMove : tTable.GetStoredMove();
+        Move prevBestMove = plyFromRoot == 0 ? bestMove : tTable.GetStoredMove(board);
         moveOrdering.OrderMoves(prevBestMove, board, moves, moveGenerator.opponentAttackMap, moveGenerator.opponentPawnAttackMap, false, plyFromRoot);
         if (moves.Length == 0)
         {
@@ -392,7 +394,7 @@ public class Search
 
             if (eval >= beta)
             {
-                tTable.StoreEvaluation(depth, plyFromRoot, beta, TranspositionTable.LowerBound, moves[i], age);
+                tTable.StoreEvaluation(board, depth, plyFromRoot, beta, TranspositionTable.LowerBound, moves[i], age);
 
                 // Update killer moves and history heuristic (note: don't include captures as theres are ranked highly anyway)
                 if (!isCapture)
@@ -447,7 +449,7 @@ public class Search
         }
 
 
-        tTable.StoreEvaluation(depth, plyFromRoot, alpha, evalType, bestMoveInThisPosition, age);
+        tTable.StoreEvaluation(board, depth, plyFromRoot, alpha, evalType, bestMoveInThisPosition, age);
 
         return alpha;
     }
@@ -461,7 +463,7 @@ public class Search
         }
 
         // Use the transposition table to see if the current position has already been reach
-        int ttVal = tTable.LookupEvaluation(0, plyFromRoot, alpha, beta);
+        int ttVal = tTable.LookupEvaluation(board, 0, plyFromRoot, alpha, beta);
         if (ttVal != TranspositionTable.LookupFailed)
         {
             return ttVal;
@@ -494,7 +496,7 @@ public class Search
 
             if (eval >= beta)
             {
-                tTable.StoreEvaluation(0, plyFromRoot, beta, TranspositionTable.LowerBound, moves[i], age);
+                tTable.StoreEvaluation(board,0, plyFromRoot, beta, TranspositionTable.LowerBound, moves[i], age);
                 searchDiagnostics.numCutOffs++;
                 return beta;
             }
@@ -504,7 +506,7 @@ public class Search
                 alpha = eval;
             }
         }
-        tTable.StoreEvaluation(0, plyFromRoot, alpha, evalType, Move.NullMove, age);
+        tTable.StoreEvaluation(board, 0, plyFromRoot, alpha, evalType, Move.NullMove, age);
 
         return alpha;
     }

@@ -22,11 +22,9 @@ public class TranspositionTable
 
     public readonly ulong count;
     public bool enabled = true;
-    Board board;
 
-    public TranspositionTable(Board board, ulong sizeMB)
+    public TranspositionTable(ulong sizeMB)
     {
-        this.board = board;
 
         ulong ttEntrySizeBytes = (ulong)System.Runtime.InteropServices.Marshal.SizeOf<TranspositionTable.Entry>();
         ulong desiredTableSizeInBytes = sizeMB * 1024 * 1024;
@@ -44,6 +42,7 @@ public class TranspositionTable
         }
     }
 
+    /*
     public ulong Index
     {
         get
@@ -51,12 +50,34 @@ public class TranspositionTable
             return board.ZobristKey % count;
         }
     }
-
-    public Move GetStoredMove()
+    */
+    public ulong Index(Board board)
     {
-        return entries[Index].move;
+        return board.ZobristKey % count;
     }
 
+    public Move GetStoredMove(Board board)
+    {
+        ulong testKey = board.ZobristKey ^ entries[Index(board)].SMP_data;
+
+        if (testKey == entries[Index(board)].SMP_key)
+        {
+            return Entry.RecoverMove(entries[Index(board)].SMP_data);
+        }
+
+        return Move.NullMove;
+    }
+
+    public int GetStoredScore(Board board)
+    {
+        ulong testKey = board.ZobristKey ^ entries[Index(board)].SMP_data;
+        if (testKey == entries[Index(board)].SMP_key)
+        {
+            return Entry.RecoverScore(entries[Index(board)].SMP_data);
+        }
+
+        return int.MinValue;
+    }
 
 
 
@@ -67,33 +88,38 @@ public class TranspositionTable
         return false;
     }
 
-    public int LookupEvaluation(int depth, int plyFromRoot, int alpha, int beta)
+    public int LookupEvaluation(Board board, int depth, int plyFromRoot, int alpha, int beta)
     {
         if (!enabled)
         {
             return LookupFailed;
         }
-        Entry entry = entries[Index];
 
-        if (entry.key == board.ZobristKey)
+        Entry entry = entries[Index(board)];
+        ulong testKey = board.ZobristKey ^ entry.SMP_data;
+
+        if (entry.SMP_key == testKey)
         {
+            int entryValue; Move entryMove; byte entryDepth; byte entryNodeType;
+            Entry.RecoverData(entry.SMP_data, out entryValue, out entryMove, out entryDepth, out entryNodeType);
+
             // Only use stored evaluation if it has been searched to at least the same depth as would be searched now
-            if (entry.depth >= depth)
+            if (entryDepth >= depth)
             {
-                int correctedScore = CorrectRetrievedMateScore(entry.value, plyFromRoot);
+                int correctedScore = CorrectRetrievedMateScore(entryValue, plyFromRoot);
                 // We have stored the exact evaluation for this position, so return it
-                if (entry.nodeType == Exact)
+                if (entryNodeType == Exact)
                 {
                     return correctedScore;
                 }
                 // We have stored the upper bound of the eval for this position. If it's less than alpha then we don't need to
                 // search the moves in this position as they won't interest us; otherwise we will have to search to find the exact value
-                if (entry.nodeType == UpperBound && correctedScore <= alpha)
+                if (entryNodeType == UpperBound && correctedScore <= alpha)
                 {
                     return correctedScore;
                 }
                 // We have stored the lower bound of the eval for this position. Only return if it causes a beta cut-off.
-                if (entry.nodeType == LowerBound && correctedScore >= beta)
+                if (entryNodeType == LowerBound && correctedScore >= beta)
                 {
                     return correctedScore;
                 }
@@ -102,15 +128,15 @@ public class TranspositionTable
         return LookupFailed;
     }
 
-    public void StoreEvaluation(int depth, int numPlySearched, int eval, int evalType, Move move, ushort age)
+    public void StoreEvaluation(Board board, int depth, int numPlySearched, int eval, int evalType, Move move, uint age)
     {
         if (!enabled)
         {
             return;
         }
-        ulong index = Index;
+        byte entryDepth = Entry.RecoverDepth(entries[Index(board)].SMP_data);
 
-        if (depth >= entries[Index].depth || age > entries[Index].age) 
+        if (depth >= entryDepth || age > entries[Index(board)].age)  
         {
             int score = CorrectMateScoreForStorage(eval, numPlySearched);
 
@@ -121,8 +147,7 @@ public class TranspositionTable
 
 
             Entry entry = new Entry(board.ZobristKey, score, (byte)depth, (byte)evalType, move, age, smp_data,smp_key);
-            entries[Index] = entry;
-            VerifyEntry(entry);
+            entries[Index(board)] = entry;
         }
     }
 
@@ -146,6 +171,7 @@ public class TranspositionTable
         return score;
     }
 
+    /*
     public void VerifyEntry(Entry entry)
     {
         ulong data = Entry.GetData(entry.value, entry.move, entry.depth, entry.nodeType);
@@ -161,9 +187,8 @@ public class TranspositionTable
         if (!Move.SameMove(move,entry.move)) { throw new Exception("move error"); }
         if (depth != entry.depth) { throw new Exception("depth error"); }
         if (nodeType != entry.nodeType) { throw new Exception("node error"); }
-
-
     }
+    */
 
     public Entry GetEntry(ulong zobristKey)
     {
@@ -175,25 +200,30 @@ public class TranspositionTable
         public readonly ulong SMP_data;
         public readonly ulong SMP_key;
         public readonly ulong key;
+        /*
         public readonly int value;
         public readonly Move move;
         public readonly byte depth;
         public readonly byte nodeType;
-        public readonly ushort age;
-
+        */
+        public readonly uint age;     
         //	public readonly byte gamePly;
 
-        public Entry(ulong key, int value, byte depth, byte nodeType, Move move, ushort age, ulong SMP_data, ulong SMP_key)
+        public Entry(ulong key, int value, byte depth, byte nodeType, Move move, uint age, ulong SMP_data, ulong SMP_key)
         {
             this.SMP_data = SMP_data;
             this.SMP_key = SMP_key;
             this.key = key;
+            /*
             this.value = value;
             this.depth = depth; // depth is how many ply were searched ahead from this position
             this.nodeType = nodeType;
             this.move = move;
+            */
             this.age = age;
+
         }
+
 
         public static int GetSize()
         {
@@ -212,6 +242,24 @@ public class TranspositionTable
             depth = (byte)((data >> 48) & 0xFF);
             nodeType = (byte)((data >> 56) & 0xFF);
   
+        }
+
+        public static byte RecoverDepth(ulong data)
+        {
+            byte depth = (byte)((data >> 48) & 0xFF);
+            return depth;
+        }
+
+        public static Move RecoverMove(ulong data)
+        {
+            Move move = new Move((ushort)((data >> 32) & 0xFFFF));
+            return move;
+        }
+
+        public static int RecoverScore(ulong data)
+        {
+            int score = (int)(data & 0xFFFFFFFF);
+            return score;
         }
     }
 
