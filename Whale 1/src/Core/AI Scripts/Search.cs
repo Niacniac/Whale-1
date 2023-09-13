@@ -203,7 +203,7 @@ public class Search
                     nps = 0f;
                 }
                 int nodesPerSecond = Convert.ToInt32(nps);
-                Console.WriteLine($"info depth {currentDepth} score cp {bestEval} nodes {searchDiagnostics.numNodes} nps {nodesPerSecond} time {timeElapsedInIteration.Milliseconds + timeElapsedInIteration.Seconds*1000} pv {pvLineName}");
+                Console.WriteLine($"info depth {currentDepth} score cp {bestEval} nodes {searchDiagnostics.numNodes} nps {nodesPerSecond} time {timeElapsedInIteration.Milliseconds + timeElapsedInIteration.Seconds*1000} pv {pvLineName} totaltime {totalElapsedTimeSecond * 1000 + totalElapsedTime.Milliseconds}");
                 // Update diagnostics
                 debugInfo += "\nIteration result: " + MoveUtility.GetMoveNameUCI(bestMove) + " Eval: " + bestEval;
                 if (IsMateScore(bestEval))
