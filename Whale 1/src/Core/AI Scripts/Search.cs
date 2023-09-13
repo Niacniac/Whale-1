@@ -203,7 +203,7 @@ public class Search
                         nps = 0f;
                     }
                     int nodesPerSecond = Convert.ToInt32(nps);
-                    Console.WriteLine($"info depth {threadWorkerDatas[thread].currentDepth} score cp {threadWorkerDatas[thread].bestEval} nodes {threadWorkerDatas[thread].searchDiagnostics.numNodes} nps {nodesPerSecond} time {timeElapsedInIteration.Milliseconds + timeElapsedInIteration.Seconds * 1000} pv {pvLineName} totaltime {totalElapsedTimeSecond * 1000 + totalElapsedTime.Milliseconds} ");
+                    Console.WriteLine($"info depth {threadWorkerDatas[thread].currentDepth} score cp {threadWorkerDatas[thread].bestEval} nodes {threadWorkerDatas[thread].searchDiagnostics.numNodes} nps {nodesPerSecond} time {timeElapsedInIteration.Milliseconds + timeElapsedInIteration.Seconds * 1000} pv {pvLineName} totaltime {totalElapsedTimeSecond * 1000 + totalElapsedTime.Milliseconds} tthit {threadWorkerDatas[thread].searchDiagnostics.tthit}");
                     // Update diagnostics
                     debugInfo += "\nIteration result: " + MoveUtility.GetMoveNameUCI(threadWorkerDatas[thread].bestMove) + " Eval: " + threadWorkerDatas[thread].bestEval;
                     if (IsMateScore(threadWorkerDatas[thread].bestEval))
@@ -297,6 +297,7 @@ public class Search
                 threadWorkerDatas[threadIndex].bestEvalThisIteration = tTable.GetStoredScore(threadWorkerDatas[threadIndex].board);
                 //Debug.Log ("move retrieved " + bestMoveThisIteration.Name + " Node type: " + tt.entries[tt.Index].nodeType + " depth: " + tt.entries[tt.Index].depth);
             }
+            threadWorkerDatas[threadIndex].searchDiagnostics.tthit++;
             return ttVal;
         }
 
@@ -466,6 +467,7 @@ public class Search
         int ttVal = tTable.LookupEvaluation(threadWorkerDatas[threadIndex].board, 0, plyFromRoot, alpha, beta);
         if (ttVal != TranspositionTable.LookupFailed)
         {
+            threadWorkerDatas[threadIndex].searchDiagnostics.tthit++;
             return ttVal;
         }
 
@@ -618,6 +620,7 @@ public class Search
         public int numCompletedIterations;
         public int numPositionsEvaluated;
         public int numNodes;
+        public int tthit;
         public ulong numCutOffs;
 
         public string moveVal;
@@ -630,8 +633,5 @@ public class Search
         public bool isBook;
 
         public int maxExtentionReachedInSearch;
-
-        System.Diagnostics.Stopwatch searchIterationTimer;
-        System.Diagnostics.Stopwatch searchTotalTimer;
     }
 }
