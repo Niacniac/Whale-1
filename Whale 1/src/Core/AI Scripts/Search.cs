@@ -40,7 +40,7 @@ public class Search
     int currentIterativeSearchDepth;
 
     // Thread
-    int threadNumber = 4;
+    int threadNumber = 1;
     ThreadWorkerData[] threadWorkerDatas;
     // Diagnostics
     int currentIterationDepth;
@@ -94,12 +94,14 @@ public class Search
     {
         List<Task> tasks = new List<Task>();
 
-        for (int i = 0; i < threadNumber; i++)
+
+        for (int i = 1; i < threadNumber; i++)
         {
             int threadIndex = i;
             Task task = Task.Factory.StartNew(() => RunIterativeDeepeningSearch(threadIndex), TaskCreationOptions.LongRunning);
             tasks.Add(task);
         }
+        RunIterativeDeepeningSearch(0);
 
         Task.WhenAll(tasks).Wait();
     }
@@ -203,7 +205,7 @@ public class Search
                         nps = 0f;
                     }
                     int nodesPerSecond = Convert.ToInt32(nps);
-                    Console.WriteLine($"info depth {threadWorkerDatas[thread].currentDepth} score cp {threadWorkerDatas[thread].bestEval} nodes {threadWorkerDatas[thread].searchDiagnostics.numNodes} nps {nodesPerSecond} time {timeElapsedInIteration.Milliseconds + timeElapsedInIteration.Seconds * 1000} pv {pvLineName} totaltime {totalElapsedTimeSecond * 1000 + totalElapsedTime.Milliseconds} tthit {threadWorkerDatas[thread].searchDiagnostics.tthit} Cutoffs {threadWorkerDatas[thread].searchDiagnostics.numCutOffs}");
+                    Console.WriteLine($"info depth {threadWorkerDatas[thread].currentDepth} score cp {threadWorkerDatas[thread].bestEval} nodes {threadWorkerDatas[thread].searchDiagnostics.numNodes} nps {nodesPerSecond} time {timeElapsedInIteration.Milliseconds + timeElapsedInIteration.Seconds * 1000} pv {pvLineName}");
                     // Update diagnostics
                     debugInfo += "\nIteration result: " + MoveUtility.GetMoveNameUCI(threadWorkerDatas[thread].bestMove) + " Eval: " + threadWorkerDatas[thread].bestEval;
                     if (IsMateScore(threadWorkerDatas[thread].bestEval))
