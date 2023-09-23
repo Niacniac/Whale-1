@@ -126,7 +126,7 @@ public class EngineUCI
 	}
 	void RespondUCI()
 	{
-		Respond("id name Whale 5");
+		Respond("id name Whale 6");
 		Respond("id author Niacniac");
 		Respond("uciok");
 		
