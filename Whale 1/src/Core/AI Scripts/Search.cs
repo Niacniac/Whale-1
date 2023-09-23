@@ -1,5 +1,6 @@
 using static System.Math;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 
 public class Search
@@ -17,7 +18,7 @@ public class Search
     const int maxNullMoveR = 4;
     const int minNullMoveR = 4;
     const int nullMoveDepthReduction = 4;
-
+    const bool allowNNUE = true;
     public event Action<Move>? OnSearchComplete;
 
     // State
@@ -40,13 +41,12 @@ public class Search
     int currentIterativeSearchDepth;
 
     // Thread
-    int threadNumber = 1;
+    int threadNumber = 4;
     ThreadWorkerData[] threadWorkerDatas;
     // Diagnostics
     int currentIterationDepth;
     Stopwatch searchTotalTimer;
     public string debugInfo;
-    
     
 
 
@@ -474,7 +474,7 @@ public class Search
         }
 
 
-        int eval = threadWorkerDatas[threadIndex].evaluation.Evaluate(threadWorkerDatas[threadIndex].board);
+        int eval = threadWorkerDatas[threadIndex].evaluation.Evaluate(threadWorkerDatas[threadIndex].board, allowNNUE);
         threadWorkerDatas[threadIndex].searchDiagnostics.numPositionsEvaluated++;
         if (eval >= beta)
         {

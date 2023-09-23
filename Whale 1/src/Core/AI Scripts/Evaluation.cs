@@ -1,8 +1,14 @@
 using System.Numerics;
+using Whale_1.src.Core;
+
 public class Evaluation
 {
     Board board;
     MoveGenerator moveGenerator;
+    NnueLibraryLoader nnueLibraryLoader;
+
+    int[] nnue_Pieces;
+    int[] nnue_Squares;
 
     public EvaluationData whiteEval;
     public EvaluationData blackEval;
@@ -34,11 +40,61 @@ public class Evaluation
     public Evaluation()
     {
         moveGenerator = new MoveGenerator();
+
+        nnueLibraryLoader = new NnueLibraryLoader();
+        nnueLibraryLoader.LoadNnueLibrary();
+        nnueLibraryLoader.NnueInit("nn-62ef826d1a6d.nnue");
     }
 
-    public int Evaluate(Board board)
+    public int Evaluate(Board board, bool useNNUE)
     {
+
         this.board = board;
+
+        if (useNNUE)
+        {
+            nnue_Pieces = new int[64];
+            nnue_Squares = new int[64];
+            int i = 0;
+            foreach (int square in board.Square)
+            {
+                if (square == 0)
+                    continue;
+
+                bool isWhite = Piece.IsWhite(square);
+
+                int nnue_Piece;
+
+                switch(Piece.PieceType(square))
+                {
+                    case Piece.King:
+                        nnue_Piece = 1;
+                        break;
+                    case Piece.Queen:
+                        nnue_Piece = 2;
+                        break;
+                    case Piece.Rook:
+                        nnue_Piece = 3;
+                        break;
+                    case Piece.Bishop:
+                        nnue_Piece = 4;
+                        break;
+                    case Piece.Knight:
+                        nnue_Piece = 5;
+                        break;
+                    case Piece.Pawn: 
+                        nnue_Piece = 6;
+                        break;
+                }
+
+
+
+            }
+        }
+
+
+
+
         whiteEval = new EvaluationData();
         blackEval = new EvaluationData();
 
@@ -194,6 +250,9 @@ public class Evaluation
             return materialScore + mopUpScore + pieceSquareScore + pawnScore + kingAttackScore;
         }
     }
+
+
+
     MaterialInfo GetMaterialInfo(int colourIndex)
     {
         int numPawns = board.Pawns[colourIndex].Count;

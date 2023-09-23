@@ -100,8 +100,8 @@ public class TranspositionTable
 
         if (entry.SMP_key == testKey)
         {
-            int entryValue; Move entryMove; byte entryDepth; byte entryNodeType;
-            Entry.RecoverData(entry.SMP_data, out entryValue, out entryMove, out entryDepth, out entryNodeType);
+            int entryValue; byte entryDepth; byte entryNodeType;
+            Entry.RecoverData(entry.SMP_data, out entryValue, out entryDepth, out entryNodeType);
 
             // Only use stored evaluation if it has been searched to at least the same depth as would be searched now
             if (entryDepth >= depth)
@@ -136,17 +136,14 @@ public class TranspositionTable
         }
         byte entryDepth = Entry.RecoverDepth(entries[Index(board)].SMP_data);
 
-        if (depth >= entryDepth || age > entries[Index(board)].age)  
-        {
-            int score = CorrectMateScoreForStorage(eval, numPlySearched);
-
+        if (depth >= entryDepth || age > entries[Index(board)].age)  {
 
             ulong smp_data = Entry.GetData(CorrectMateScoreForStorage(eval, numPlySearched), move, (byte)depth, (byte)evalType);
             ulong smp_key = board.ZobristKey ^ smp_data;
 
 
 
-            Entry entry = new Entry(board.ZobristKey, score, (byte)depth, (byte)evalType, move, age, smp_data,smp_key);
+            Entry entry = new Entry(board.ZobristKey, age, smp_data,smp_key);
             entries[Index(board)] = entry;
         }
     }
@@ -209,7 +206,7 @@ public class TranspositionTable
         public readonly uint age;     
         //	public readonly byte gamePly;
 
-        public Entry(ulong key, int value, byte depth, byte nodeType, Move move, uint age, ulong SMP_data, ulong SMP_key)
+        public Entry(ulong key, uint age, ulong SMP_data, ulong SMP_key)
         {
             this.SMP_data = SMP_data;
             this.SMP_key = SMP_key;
@@ -235,10 +232,9 @@ public class TranspositionTable
             return ((uint)value) | (((ulong)move.Value) << 32) | ((ulong)depth << 48) | ((ulong)nodeType << 56);
         }
 
-        public static void RecoverData(ulong data, out int value, out Move move, out byte depth, out byte nodeType)
+        public static void RecoverData(ulong data, out int value, out byte depth, out byte nodeType)
         {
             value = (int)(data & 0xFFFFFFFF);
-            move = new Move((ushort)((data >> 32) & 0xFFFF));
             depth = (byte)((data >> 48) & 0xFF);
             nodeType = (byte)((data >> 56) & 0xFF);
   
