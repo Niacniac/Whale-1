@@ -53,43 +53,27 @@ public class Evaluation
 
         if (useNNUE)
         {
-            nnue_Pieces = new int[64];
-            nnue_Squares = new int[64];
+            nnue_Pieces = new int[33];
+            nnue_Squares = new int[33];
             int i = 0;
+            int j = 0;
             foreach (int square in board.Square)
             {
                 if (square == 0)
-                    continue;
-
-                bool isWhite = Piece.IsWhite(square);
-
-                int nnue_Piece;
-
-                switch(Piece.PieceType(square))
                 {
-                    case Piece.King:
-                        nnue_Piece = 1;
-                        break;
-                    case Piece.Queen:
-                        nnue_Piece = 2;
-                        break;
-                    case Piece.Rook:
-                        nnue_Piece = 3;
-                        break;
-                    case Piece.Bishop:
-                        nnue_Piece = 4;
-                        break;
-                    case Piece.Knight:
-                        nnue_Piece = 5;
-                        break;
-                    case Piece.Pawn: 
-                        nnue_Piece = 6;
-                        break;
+                    j++;
+                    continue;
                 }
 
+                int nnue_Piece = GetNnuePieceCode(square);
 
+                nnue_Pieces[i] = nnue_Piece;
+                nnue_Squares[i] = j;
 
+                j++;
+                i++;
             }
+            return nnueLibraryLoader.NnueEvaluate(board.MoveColourIndex, nnue_Pieces,nnue_Squares) * (100 - board.FiftyMoveCounter) / 100;
         }
 
 
@@ -236,6 +220,39 @@ public class Evaluation
         return hit * unitPerHit;
     }
 
+    int GetNnuePieceCode(int square)
+    {
+        bool isWhite = Piece.IsWhite(square);
+
+        int nnue_Piece = 0;
+
+        switch (Piece.PieceType(square))
+        {
+            case Piece.King:
+                nnue_Piece = 1;
+                break;
+            case Piece.Queen:
+                nnue_Piece = 2;
+                break;
+            case Piece.Rook:
+                nnue_Piece = 3;
+                break;
+            case Piece.Bishop:
+                nnue_Piece = 4;
+                break;
+            case Piece.Knight:
+                nnue_Piece = 5;
+                break;
+            case Piece.Pawn:
+                nnue_Piece = 6;
+                break;
+        }
+
+        if (!isWhite)
+            nnue_Piece += 6;
+
+        return nnue_Piece;
+    }
 
     public struct EvaluationData
     {
