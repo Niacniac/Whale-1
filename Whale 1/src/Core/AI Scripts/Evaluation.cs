@@ -51,11 +51,12 @@ public class Evaluation
 
         this.board = board;
 
+        
         if (useNNUE)
         {
             nnue_Pieces = new int[33];
             nnue_Squares = new int[33];
-            int i = 0;
+            int i = 2;
             int j = 0;
             foreach (int square in board.Square)
             {
@@ -67,14 +68,27 @@ public class Evaluation
 
                 int nnue_Piece = GetNnuePieceCode(square);
 
-                nnue_Pieces[i] = nnue_Piece;
-                nnue_Squares[i] = j;
-
+                if (nnue_Piece == 1)
+                {
+                    nnue_Pieces[0] = nnue_Piece;
+                    nnue_Squares[0] = j;
+                }
+                else if (nnue_Piece == 7)
+                {
+                    nnue_Pieces[1] = nnue_Piece;
+                    nnue_Squares[1] = j;
+                }
+                else
+                {
+                    nnue_Pieces[i] = nnue_Piece;
+                    nnue_Squares[i] = j;
+                    i++;
+                }
                 j++;
-                i++;
             }
-            return nnueLibraryLoader.NnueEvaluate(board.MoveColourIndex, nnue_Pieces,nnue_Squares) * (100 - board.FiftyMoveCounter) / 100;
+            return nnueLibraryLoader.NnueEvaluate(board.MoveColourIndex, nnue_Pieces, nnue_Squares) * (100 - board.FiftyMoveCounter) / 100; 
         }
+        
 
 
 

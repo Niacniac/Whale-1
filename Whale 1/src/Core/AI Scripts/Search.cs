@@ -133,7 +133,6 @@ public class Search
             currentIterationDepth = searchDepth;
 
             threadWorkerDatas[thread].lastIterationEval = SearchMoves(thread,searchDepth, 0, a, b);
-            threadWorkerDatas[thread].bestEvalThisIteration = threadWorkerDatas[thread].bestEvalThisIteration;
             if (abortSearch)
             {
                 if (hasSearchedAtLeastOneMove)
