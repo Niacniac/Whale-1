@@ -41,7 +41,7 @@ public class Search
     int currentIterativeSearchDepth;
 
     // Thread
-    int threadNumber = 4;
+    int threadNumber = 1;
     ThreadWorkerData[] threadWorkerDatas;
     // Diagnostics
     int currentIterationDepth;
@@ -204,7 +204,7 @@ public class Search
                         nps = 0f;
                     }
                     int nodesPerSecond = Convert.ToInt32(nps);
-                    Console.WriteLine($"info depth {threadWorkerDatas[thread].currentDepth} score cp {threadWorkerDatas[thread].bestEval} nodes {threadWorkerDatas[thread].searchDiagnostics.numNodes} nps {nodesPerSecond} time {timeElapsedInIteration.Milliseconds + timeElapsedInIteration.Seconds * 1000} pv {pvLineName}");
+                    Console.WriteLine($"info depth {threadWorkerDatas[thread].currentDepth} score cp {threadWorkerDatas[thread].bestEval} nodes {threadWorkerDatas[thread].searchDiagnostics.numNodes} nps {nodesPerSecond} time {timeElapsedInIteration.Milliseconds + timeElapsedInIteration.Seconds * 1000} pv {pvLineName} tthits {threadWorkerDatas[thread].searchDiagnostics.tthit}");
                     // Update diagnostics
                     debugInfo += "\nIteration result: " + MoveUtility.GetMoveNameUCI(threadWorkerDatas[thread].bestMove) + " Eval: " + threadWorkerDatas[thread].bestEval;
                     if (IsMateScore(threadWorkerDatas[thread].bestEval))
@@ -246,6 +246,25 @@ public class Search
         // init PV length
         threadWorkerDatas[threadIndex].pvLength[plyFromRoot] = plyFromRoot;
 
+        if (depth <= 0)
+        {
+            return QuiescenceSearch(threadIndex, alpha, beta, plyFromRoot);
+        }
+
+        // Use the transposition table to see if the current position has already been reach
+        int ttVal = tTable.LookupEvaluation(threadWorkerDatas[threadIndex].board, depth, plyFromRoot, alpha, beta);
+        if (ttVal != TranspositionTable.LookupFailed)
+        {
+            if (plyFromRoot == 0)
+            {
+                threadWorkerDatas[threadIndex].bestMoveThisIteration = tTable.GetStoredMove(threadWorkerDatas[threadIndex].board);
+                threadWorkerDatas[threadIndex].bestEvalThisIteration = tTable.GetStoredScore(threadWorkerDatas[threadIndex].board);
+                //Debug.Log ("move retrieved " + bestMoveThisIteration.Name + " Node type: " + tt.entries[tt.Index].nodeType + " depth: " + tt.entries[tt.Index].depth);
+            }
+            threadWorkerDatas[threadIndex].searchDiagnostics.tthit++;
+            return ttVal;
+        }
+
 
         if (plyFromRoot > 0)
         {
@@ -264,7 +283,7 @@ public class Search
             }
         }
 
-        
+
         // Null move prunning
         if (depth >= 3 && !threadWorkerDatas[threadIndex].board.IsInCheck() && plyFromRoot > 0 && doNull)
         {
@@ -287,25 +306,8 @@ public class Search
             }
         }
         
-        
-        // Use the transposition table to see if the current position has already been reach
-        int ttVal = tTable.LookupEvaluation(threadWorkerDatas[threadIndex].board, depth, plyFromRoot, alpha, beta);
-        if (ttVal != TranspositionTable.LookupFailed)
-        {
-            if (plyFromRoot == 0)
-            {
-                threadWorkerDatas[threadIndex].bestMoveThisIteration = tTable.GetStoredMove(threadWorkerDatas[threadIndex].board);
-                threadWorkerDatas[threadIndex].bestEvalThisIteration = tTable.GetStoredScore(threadWorkerDatas[threadIndex].board);
-                //Debug.Log ("move retrieved " + bestMoveThisIteration.Name + " Node type: " + tt.entries[tt.Index].nodeType + " depth: " + tt.entries[tt.Index].depth);
-            }
-            threadWorkerDatas[threadIndex].searchDiagnostics.tthit++;
-            return ttVal;
-        }
 
-        if (depth <= 0)
-        {
-            return QuiescenceSearch(threadIndex,alpha, beta, plyFromRoot);
-        }
+
 
         Span<Move> moves = stackalloc Move[MoveGenerator.MaxMoves];
         threadWorkerDatas[threadIndex].moveGenerator.GenerateMoves(threadWorkerDatas[threadIndex].board, ref moves, capturesOnly: false);
