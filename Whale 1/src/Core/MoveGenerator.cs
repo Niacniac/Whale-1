@@ -32,6 +32,11 @@ public class MoveGenerator
     public ulong opponentPawnAttackMap;
     ulong opponentSlidingAttackMap;
 
+    public ulong[] friendlyQueensAttackMap;
+    public ulong[] friendlyRooksAttackMap;
+    public ulong[] friendlyMinorPiecesAttackMap;
+    public ulong[] friendlyPawnsAttackMap;
+
     bool generateQuietMoves;
     Board board;
     int currMoveIndex;
@@ -74,6 +79,15 @@ public class MoveGenerator
         moves = moves.Slice(0, currMoveIndex);
         return moves.Length;
     }
+    public void GenerateFriendlyAttackMap(Board board, bool isWhite)
+    {
+        this.board = board;
+        
+        InitAttackMap();
+
+        GenerateFriendlyPiecesAttackMap(isWhite);
+
+    }
 
     // Note, this will only return correct value after GenerateMoves() has been called in the current position
     public bool InCheck()
@@ -107,6 +121,32 @@ public class MoveGenerator
         moveTypeMask = generateQuietMoves ? ulong.MaxValue : enemyPieces;
 
         CalculateAttackData();
+    }
+
+    void InitAttackMap()
+    {
+        // Reset state
+        currMoveIndex = 0;
+        inCheck = false;
+        inDoubleCheck = false;
+        checkRayBitmask = 0;
+        pinRays = 0;
+
+        // Store some info for convenience
+        isWhiteToMove = board.MoveColour == Piece.White;
+        friendlyColour = board.MoveColour;
+        opponentColour = board.OpponentColour;
+        friendlyKingSquare = board.KingSquare[board.MoveColourIndex];
+        friendlyIndex = board.MoveColourIndex;
+        enemyIndex = 1 - friendlyIndex;
+
+        // Store some bitboards for convenience
+        enemyPieces = board.ColourBitboards[enemyIndex];
+        friendlyPieces = board.ColourBitboards[friendlyIndex];
+        allPieces = board.AllPiecesBitboard;
+        emptySquares = ~allPieces;
+        emptyOrEnemySquares = emptySquares | enemyPieces;
+        moveTypeMask = generateQuietMoves ? ulong.MaxValue : enemyPieces;
     }
 
     void GenerateKingMoves(System.Span<Move> moves)
@@ -219,6 +259,7 @@ public class MoveGenerator
             }
         }
     }
+
 
     void GeneratePawnMoves(System.Span<Move> moves)
     {
@@ -379,6 +420,110 @@ public class MoveGenerator
             {
                 moves[currMoveIndex++] = new Move(startSquare, targetSquare, Move.PromoteToKnightFlag);
             }
+        }
+    }
+
+    void GenerateFriendlyPiecesAttackMap(bool iswhite)
+    {
+        //Init with the max piece possible on the chess board
+        friendlyPawnsAttackMap = new ulong[8];
+        friendlyMinorPiecesAttackMap = new ulong[12];
+        friendlyQueensAttackMap = new ulong[9];
+        friendlyRooksAttackMap = new ulong[10];
+
+        // int friendlyPawnsCount = 0;
+        int friendlyMinorPiecesCount = 0;
+        int friendlyQueensCount = 0;
+        int friendlyRooksCount = 0;
+
+        int Colour = iswhite ? Piece.White : Piece.Black;
+
+        if (board.MoveColour != Colour) 
+        {
+            friendlyPieces = enemyPieces;
+            emptyOrEnemySquares = (~emptyOrEnemySquares) | emptySquares;
+        }
+
+        // Pawns AttackMap
+        /*
+        int pushDir = iswhite ? 1 : -1;
+
+        int friendlyPawnPiece = Piece.MakePiece(Piece.Pawn, Colour);
+        ulong pawns = board.PieceBitboards[friendlyPawnPiece];
+        ulong[] pawnsArray = BitBoardUtility.GetIndividualBitBoard(pawns);
+
+
+        ulong captureEdgeFileMask = iswhite ? BitBoardUtility.notAFile : BitBoardUtility.notHFile;
+        ulong captureEdgeFileMask2 = iswhite ? BitBoardUtility.notHFile : BitBoardUtility.notAFile;
+
+        for (int i = 0; i < pawnsArray.Length; i++)
+        {
+            ulong captureA = BitBoardUtility.Shift(pawnsArray[i] & captureEdgeFileMask, pushDir * 7) & ~friendlyPieces;
+            ulong captureB = BitBoardUtility.Shift(pawnsArray[i] & captureEdgeFileMask2, pushDir * 9) & ~friendlyPieces;
+
+            friendlyPawnsAttackMap[friendlyPawnsCount] = captureA | captureB;
+            friendlyPawnsCount++;
+        }
+        */
+
+        // Knights AttackMap
+        int friendlyKnightPiece = Piece.MakePiece(Piece.Knight, Colour);
+        // bitboard of all non-pinned knights
+        ulong knights = board.PieceBitboards[friendlyKnightPiece];
+
+        ulong moveMask = emptyOrEnemySquares;
+        
+        while (knights != 0)
+        {
+            int knightSquare = BitBoardUtility.PopLSB(ref knights);
+            friendlyMinorPiecesAttackMap[friendlyMinorPiecesCount] = BitBoardUtility.KnightAttacks[knightSquare] & moveMask;
+            friendlyMinorPiecesCount++;
+        }
+
+        // Rook bishop Queen AttackMap
+
+        // Limit movement to empty or enemy squares, and must block check if king is in check.
+
+        int friendlyQueenPiece = Piece.MakePiece(Piece.Queen, Colour);
+        ulong queens = board.PieceBitboards[friendlyQueenPiece];
+
+        int friendlyBishopPiece = Piece.MakePiece(Piece.Bishop, Colour);
+        ulong bishops = board.PieceBitboards[friendlyBishopPiece];
+
+        int friendlyRookPiece = Piece.MakePiece(Piece.Rook, Colour);
+        ulong rooks = board.PieceBitboards[friendlyRookPiece];
+
+
+
+        // Ortho (rook)
+        while (rooks != 0)
+        {
+            int startSquare = BitBoardUtility.PopLSB(ref rooks);
+            ulong moveSquares = Magic.GetRookAttacks(startSquare, allPieces) & moveMask;
+
+            friendlyRooksAttackMap[friendlyRooksCount] = moveSquares;
+            friendlyRooksCount++;
+        }
+
+        // Diag (bishop)
+        while (bishops != 0)
+        {
+            int startSquare = BitBoardUtility.PopLSB(ref bishops);
+            ulong moveSquares = Magic.GetBishopAttacks(startSquare, allPieces) & moveMask;
+
+            friendlyMinorPiecesAttackMap[friendlyMinorPiecesCount] = moveSquares;
+            friendlyMinorPiecesCount++;
+        }
+
+        // Diag and ortho (queen)
+        while (queens != 0)
+        {
+            int startSquare = BitBoardUtility.PopLSB(ref queens);
+            ulong moveSquares1 = Magic.GetBishopAttacks(startSquare, allPieces) & moveMask;
+            ulong moveSquares2 = Magic.GetRookAttacks(startSquare, allPieces) & moveMask;
+
+            friendlyQueensAttackMap[friendlyQueensCount] = moveSquares1 | moveSquares2;
+            friendlyQueensCount++;
         }
     }
 

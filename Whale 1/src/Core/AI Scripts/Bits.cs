@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using static System.Math;
 
 
@@ -26,10 +27,11 @@ public static class Bits
 	public static readonly ulong[] FileMask;
 	public static readonly ulong[] AdjacentFileMasks;
 
-	public static readonly ulong[] KingSafetyMask;
+	public static readonly ulong[] WhiteKingSafetyMask;
+    public static readonly ulong[] BlackKingSafetyMask;
 
-	// Mask of 'forward' square. For example, from e4 the forward squares for white are: [e5, e6, e7, e8]
-	public static readonly ulong[] WhiteForwardFileMask;
+    // Mask of 'forward' square. For example, from e4 the forward squares for white are: [e5, e6, e7, e8]
+    public static readonly ulong[] WhiteForwardFileMask;
 	public static readonly ulong[] BlackForwardFileMask;
 
 	// Mask of three consecutive files centred at given file index.
@@ -84,15 +86,54 @@ public static class Bits
 			BlackForwardFileMask[square] = blackForwardMask & FileMask[file];
 		}
 
+        
 
-
-		KingSafetyMask = new ulong[64];
-		for (int i = 0; i < 64; i++)
+        WhiteKingSafetyMask = new ulong[64];
+		BlackKingSafetyMask = new ulong[64];
+		for (int square = 0 ; square < 64; square++)
 		{
-			KingSafetyMask[i] = BitBoardUtility.KingMoves[i] | (1ul << i);
-		}
+			int file = BoardHelper.FileIndex(square);
+			int rank = BoardHelper.RankIndex(square);
+
+			ulong whiteRankMask = 0;
+            for (int i = rank + 1; i <= rank + 4; i++)
+            {
+                if (i <= 7)
+                {
+                    whiteRankMask |= (0xFFul << (8 * i));
+                }
+            }
+            for (int i = rank - 1; i >= rank - 1; i--)
+            {
+                if (i >= 0)
+                {
+                    whiteRankMask |= (0xFFul << (8 * i));
+                }
+            }
+            whiteRankMask |= (0xFFul << (8 * rank));
 
 
+			ulong blackRankMask = 0;
+            for (int i = rank - 1; i >= rank - 4; i--)
+            {
+                if (i >= 0)
+                {
+                    blackRankMask |= (0xFFul << (8 * i));
+                }
+            }
+            for (int i = rank + 1; i <= rank + 1; i++)
+            {
+                if (i <= 7)
+                {
+                    blackRankMask |= (0xFFul << (8 * i));
+                }
+            }
+            blackRankMask |= (0xFFul << (8 * rank));
+
+			ulong fileMask = FileA << file | FileA << Max(0, file - 1) | FileA << Min(7, file + 1);
+
+			WhiteKingSafetyMask[square] = whiteRankMask & fileMask;
+			BlackKingSafetyMask[square] = blackRankMask & fileMask;
+        }
 	}
-
 }

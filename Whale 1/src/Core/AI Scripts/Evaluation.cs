@@ -1,7 +1,14 @@
+using System.Numerics;
+using Whale_1.src.Core;
 
 public class Evaluation
 {
     Board board;
+    MoveGenerator moveGenerator;
+    NnueLibraryLoader nnueLibraryLoader;
+
+    int[] nnue_Pieces;
+    int[] nnue_Squares;
 
     public EvaluationData whiteEval;
     public EvaluationData blackEval;
@@ -16,9 +23,76 @@ public class Evaluation
     static readonly int[] isolatedPawnPenaltyByCount = { 0, -10, -25, -50, -75, -75, -75, -75, -75 };
 
     const float endgameMaterialStart = rookValue * 2 + bishopValue + knightValue;
-    public int Evaluate(Board board)
+
+    static readonly int[] SafetyTable = {
+          0,   0,   1,   2,   3,   5,   7,   9,  12,  15,
+         18,  22,  26,  30,  35,  39,  44,  50,  56,  62,
+         68,  75,  82,  85,  89,  97, 105, 113, 122, 131,
+        140, 150, 169, 180, 191, 202, 213, 225, 237, 248,
+        260, 272, 283, 295, 307, 319, 330, 342, 354, 366,
+        377, 389, 401, 412, 424, 436, 448, 459, 471, 483,
+        494, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+        500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+        500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
+        500, 500, 500, 500, 500, 500, 500, 500, 500, 500
+    };
+
+    public Evaluation()
     {
+        moveGenerator = new MoveGenerator();
+
+        nnueLibraryLoader = new NnueLibraryLoader();
+        nnueLibraryLoader.LoadNnueLibrary();
+        nnueLibraryLoader.NnueInit("nn-62ef826d1a6d.nnue");
+    }
+
+    public int Evaluate(Board board, bool useNNUE)
+    {
+
         this.board = board;
+
+        
+        if (useNNUE)
+        {
+            nnue_Pieces = new int[33];
+            nnue_Squares = new int[33];
+            int i = 2;
+            int j = 0;
+            foreach (int square in board.Square)
+            {
+                if (square == 0)
+                {
+                    j++;
+                    continue;
+                }
+
+                int nnue_Piece = GetNnuePieceCode(square);
+
+                if (nnue_Piece == 1)
+                {
+                    nnue_Pieces[0] = nnue_Piece;
+                    nnue_Squares[0] = j;
+                }
+                else if (nnue_Piece == 7)
+                {
+                    nnue_Pieces[1] = nnue_Piece;
+                    nnue_Squares[1] = j;
+                }
+                else
+                {
+                    nnue_Pieces[i] = nnue_Piece;
+                    nnue_Squares[i] = j;
+                    i++;
+                }
+                j++;
+            }
+            return nnueLibraryLoader.NnueEvaluate(board.MoveColourIndex, nnue_Pieces, nnue_Squares) * (100 - board.FiftyMoveCounter) / 100; 
+        }
+        
+
+
+
+
         whiteEval = new EvaluationData();
         blackEval = new EvaluationData();
 
@@ -36,6 +110,9 @@ public class Evaluation
 
         whiteEval.pawnScore = EvaluatePawns(Board.WhiteIndex);
         blackEval.pawnScore = EvaluatePawns(Board.BlackIndex);
+
+        whiteEval.kingAttackScore = EvaluateKingAttack(true);
+        blackEval.kingAttackScore = EvaluateKingAttack(false);
 
         int perspective = board.IsWhiteToMove? 1 : -1;
         // more than 0 good for white, less than 0 good for black
@@ -122,18 +199,91 @@ public class Evaluation
         return bonus + isolatedPawnPenaltyByCount[numIsolatedPawns];
     }
 
+    int EvaluateKingAttack(bool isWhite)
+    {
+        ulong[] kingSafetyMasks = isWhite ?  Bits.BlackKingSafetyMask : Bits.WhiteKingSafetyMask;
+        int kingSquare = isWhite ? board.KingSquare[1] : board.KingSquare[0];
+
+        ulong kingSafetyMask = kingSafetyMasks[kingSquare];
+
+        moveGenerator.GenerateFriendlyAttackMap(board, isWhite);
+        ulong[] friendlyMinorPiecesAttackMap = moveGenerator.friendlyMinorPiecesAttackMap;
+        ulong[] friendlyRookAttackMap = moveGenerator.friendlyRooksAttackMap;
+        ulong[] friendlyQueensAttackMap = moveGenerator.friendlyQueensAttackMap;
+        
+        int attackUnit = 0;
+        attackUnit += GetAttackUnit(friendlyMinorPiecesAttackMap, kingSafetyMask, 2);
+        attackUnit += GetAttackUnit(friendlyRookAttackMap, kingSafetyMask, 4);
+        attackUnit += GetAttackUnit(friendlyQueensAttackMap, kingSafetyMask, 6);
+        
+
+        return SafetyTable[attackUnit];
+    }
+
+    int GetAttackUnit(ulong[] AttackMap, ulong kingMask, int unitPerHit)
+    {
+        int hit = 0;
+        for (int i = 0; i < AttackMap.Length; i++)
+        {
+            ulong value = AttackMap[i] & kingMask;
+            if (value != 0)
+            {
+                hit ++;
+            }
+        }
+        return hit * unitPerHit;
+    }
+
+    int GetNnuePieceCode(int square)
+    {
+        bool isWhite = Piece.IsWhite(square);
+
+        int nnue_Piece = 0;
+
+        switch (Piece.PieceType(square))
+        {
+            case Piece.King:
+                nnue_Piece = 1;
+                break;
+            case Piece.Queen:
+                nnue_Piece = 2;
+                break;
+            case Piece.Rook:
+                nnue_Piece = 3;
+                break;
+            case Piece.Bishop:
+                nnue_Piece = 4;
+                break;
+            case Piece.Knight:
+                nnue_Piece = 5;
+                break;
+            case Piece.Pawn:
+                nnue_Piece = 6;
+                break;
+        }
+
+        if (!isWhite)
+            nnue_Piece += 6;
+
+        return nnue_Piece;
+    }
+
     public struct EvaluationData
     {
         public int materialScore;
         public int mopUpScore;
         public int pieceSquareScore;
         public int pawnScore;
+        public int kingAttackScore; // Give point if the other king is under attack
 
         public int Sum()
         {
-            return materialScore + mopUpScore + pieceSquareScore + pawnScore;
+            return materialScore + mopUpScore + pieceSquareScore + pawnScore + kingAttackScore;
         }
     }
+
+
+
     MaterialInfo GetMaterialInfo(int colourIndex)
     {
         int numPawns = board.Pawns[colourIndex].Count;

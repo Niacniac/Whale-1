@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-
+using System.Diagnostics;
 
 public static class BitBoardUtility
 {
@@ -43,6 +43,34 @@ public static class BitBoardUtility
         int i = deBruijnTable[((ulong)((long)b & -(long)b) * deBruijn64) >> 58];
         b = b & (b - 1);
         return i;
+    }
+    public static ulong[] GetIndividualBitBoard(ulong bitBoard) 
+    {
+
+        ulong[] bitBoardArray = new ulong[64];
+        int j = 0;
+        for (int i = 0;i < 64; i++)
+        {
+            var value = (bitBoard >> i) & 1ul;
+            if (value == 0b1ul)
+            {
+                bitBoardArray[j] = 1ul << i;
+                j++;
+            }
+        }
+        Array.Resize(ref bitBoardArray, j);
+
+        return bitBoardArray;
+    }
+
+    public static ulong CombineBitBoards(ulong[] bitBoardArray)
+    {
+        ulong bitBoard = 0;
+        for (int i = 0; i < bitBoardArray.Length; i++)
+        {
+            bitBoard |= bitBoardArray[i];
+        }
+        return bitBoard;
     }
 
     public static void SetSquare(ref ulong bitboard, int squareIndex)
