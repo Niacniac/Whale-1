@@ -246,6 +246,24 @@ public class Search
         // init PV length
         threadWorkerDatas[threadIndex].pvLength[plyFromRoot] = plyFromRoot;
 
+        // manage draw and checkmate
+        if (plyFromRoot > 0)
+        {
+            // detect draw by repetition
+            if (threadWorkerDatas[threadIndex].board.CurrentGameState.fiftyMoveCounter >= 100 || threadWorkerDatas[threadIndex].repetitionTable.Contains(threadWorkerDatas[threadIndex].board.CurrentGameState.zobristKey))
+            {
+                return 0;
+            }
+
+            // If a mating sequence as already been found this position is skipped
+            alpha = Max(alpha, -immediateMateScore + plyFromRoot);
+            beta = Min(beta, immediateMateScore - plyFromRoot);
+            if (alpha >= beta)
+            {
+                return alpha;
+            }
+        }
+
         if (depth <= 0)
         {
             return QuiescenceSearch(threadIndex, alpha, beta, plyFromRoot);
@@ -263,24 +281,6 @@ public class Search
             }
             threadWorkerDatas[threadIndex].searchDiagnostics.tthit++;
             return ttVal;
-        }
-
-
-        if (plyFromRoot > 0)
-        {
-            // detect draw by repetition
-            if (threadWorkerDatas[threadIndex].board.CurrentGameState.fiftyMoveCounter >= 100 || threadWorkerDatas[threadIndex].repetitionTable.Contains(threadWorkerDatas[threadIndex].board.CurrentGameState.zobristKey))
-            {
-                return 0;
-            }
-
-            // If a mating sequence as already been found this position is skipped
-            alpha = Max(alpha, -immediateMateScore + plyFromRoot);
-            beta = Min(beta, immediateMateScore - plyFromRoot);
-            if (alpha >= beta)
-            {
-                return alpha;
-            }
         }
 
 
