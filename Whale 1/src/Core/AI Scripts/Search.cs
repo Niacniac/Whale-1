@@ -250,7 +250,7 @@ public class Search
         {
             return QuiescenceSearch(threadIndex, alpha, beta, plyFromRoot);
         }
-        
+
         // Use the transposition table to see if the current position has already been reach
         int ttVal = tTable.LookupEvaluation(threadWorkerDatas[threadIndex].board, depth, plyFromRoot, alpha, beta);
         if (ttVal != TranspositionTable.LookupFailed)
@@ -264,7 +264,7 @@ public class Search
             threadWorkerDatas[threadIndex].searchDiagnostics.tthit++;
             return ttVal;
         }
-        
+
 
         if (plyFromRoot > 0)
         {
@@ -283,7 +283,7 @@ public class Search
             }
         }
 
-        
+
         // Null move prunning
         if (depth >= 3 && !threadWorkerDatas[threadIndex].board.IsInCheck() && plyFromRoot > 0 && doNull)
         {
@@ -312,10 +312,10 @@ public class Search
         Span<Move> moves = stackalloc Move[MoveGenerator.MaxMoves];
         threadWorkerDatas[threadIndex].moveGenerator.GenerateMoves(threadWorkerDatas[threadIndex].board, ref moves, capturesOnly: false);
         Move prevBestMove = plyFromRoot == 0 ? threadWorkerDatas[threadIndex].bestMove : tTable.GetStoredMove(threadWorkerDatas[threadIndex].board);
-        threadWorkerDatas[threadIndex].moveOrdering.OrderMoves(prevBestMove, threadWorkerDatas[threadIndex].board, moves, threadWorkerDatas[threadIndex].moveGenerator.opponentAttackMap, threadWorkerDatas[threadIndex].moveGenerator.opponentPawnAttackMap, false, plyFromRoot);
+        threadWorkerDatas[threadIndex].moveOrdering.OrderMoves(prevBestMove, threadWorkerDatas[threadIndex].board, moves, threadWorkerDatas[0].moveGenerator.opponentAttackMap, threadWorkerDatas[0].moveGenerator.opponentPawnAttackMap, false, plyFromRoot);
         if (moves.Length == 0)
         {
-            if (threadWorkerDatas[threadIndex].moveGenerator.InCheck())
+            if (threadWorkerDatas[0].moveGenerator.InCheck())
             {
                 int mateScore = immediateMateScore - plyFromRoot;
                 return -mateScore; // Checkmate
@@ -490,7 +490,7 @@ public class Search
         Span<Move> moves = stackalloc Move[128];
         int evalType = TranspositionTable.UpperBound;
         threadWorkerDatas[threadIndex].moveGenerator.GenerateMoves(threadWorkerDatas[threadIndex].board, ref moves, capturesOnly: true);
-        threadWorkerDatas[threadIndex].moveOrdering.OrderMoves(Move.NullMove, threadWorkerDatas[threadIndex].board, moves, threadWorkerDatas[threadIndex].moveGenerator.opponentAttackMap, threadWorkerDatas[threadIndex].moveGenerator.opponentPawnAttackMap, true, 0);
+        threadWorkerDatas[threadIndex].moveOrdering.OrderMoves(Move.NullMove, threadWorkerDatas[threadIndex].board, moves, threadWorkerDatas[0].moveGenerator.opponentAttackMap, threadWorkerDatas[threadIndex].moveGenerator.opponentPawnAttackMap, true, 0);
         for (int i = 0;i < moves.Length;i++)
         {
             threadWorkerDatas[threadIndex].board.MakeMove(moves[i], true);
