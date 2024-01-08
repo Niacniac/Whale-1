@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 public class Search
 {
     // Constants
-    const int maxThreads = 8;
+    const int maxThreads = 32;
     const int transpositionTableSize = 4000;
     const int maxExtentions = 16;
     public int aspirationWindows = 9;
@@ -41,7 +41,7 @@ public class Search
     int currentIterativeSearchDepth;
 
     // Thread
-    int threadNumber = 4;
+    int threadNumber = 20;
     ThreadWorkerData[] threadWorkerDatas;
     // Diagnostics
     int currentIterationDepth;

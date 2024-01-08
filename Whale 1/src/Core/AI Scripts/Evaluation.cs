@@ -86,7 +86,7 @@ public class Evaluation
                 }
                 j++;
             }
-            return nnueLibraryLoader.NnueEvaluate(board.MoveColourIndex, nnue_Pieces, nnue_Squares) * (100 - board.FiftyMoveCounter) / 100; 
+            return nnueLibraryLoader.NnueEvaluate(board.MoveColourIndex, nnue_Pieces, nnue_Squares); 
         }
         
 
