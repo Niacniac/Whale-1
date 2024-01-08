@@ -41,7 +41,7 @@ public class Search
     int currentIterativeSearchDepth;
 
     // Thread
-    int threadNumber = 20;
+    int threadNumber = 1;
     ThreadWorkerData[] threadWorkerDatas;
     // Diagnostics
     int currentIterationDepth;
@@ -132,7 +132,7 @@ public class Search
             debugInfo += "\nStarting Iteration: " + searchDepth;
             currentIterationDepth = searchDepth;
 
-            threadWorkerDatas[thread].lastIterationEval = SearchMoves(thread,searchDepth, 0, a, b);
+            threadWorkerDatas[thread].lastIterationEval = SearchMoves(thread,searchDepth, 0, a, b, true);
             if (abortSearch)
             {
                 if (hasSearchedAtLeastOneMove)
@@ -236,7 +236,7 @@ public class Search
     
 
     // Main search function
-    int SearchMoves(int threadIndex,int depth, int plyFromRoot, int alpha, int beta, int numExtensions = 0, Move prevMove = default, bool prevWasCapture = false, bool doNull = true)
+    int SearchMoves(int threadIndex,int depth, int plyFromRoot, int alpha, int beta, bool verifyZugzwang, int numExtensions = 0, Move prevMove = default, bool prevWasCapture = false, bool doNull = true)
     {
         if (abortSearch)
         {
@@ -283,31 +283,32 @@ public class Search
             return ttVal;
         }
 
-
+        
         // Null move prunning
-        if (depth >= 3 && !threadWorkerDatas[threadIndex].board.IsInCheck() && plyFromRoot > 0 && doNull)
+        if ((depth >= 3 || !verifyZugzwang) && !threadWorkerDatas[threadIndex].board.IsInCheck() && plyFromRoot > 0 && doNull)
         {
             threadWorkerDatas[threadIndex].board.MakeNullMove();
             int R = depth > 6 ? maxNullMoveR : minNullMoveR;
-            int evaluation = -SearchMoves(threadIndex, depth - R - 1, plyFromRoot + 1, -beta, -beta + 1, doNull:false);
+            int nullEvaluation = -SearchMoves(threadIndex, depth - R - 1, plyFromRoot + 1, -beta, -beta + 1, verifyZugzwang, doNull:false);
             threadWorkerDatas[threadIndex].board.UnmakeNullMove();
 
-            if (abortSearch)
+
+
+            if (nullEvaluation >= beta)
             {
-                return 0;
-            }
-            if (evaluation >= beta)
-            {
-                depth -= nullMoveDepthReduction;
-                if (depth <= 0)
+                if (verifyZugzwang)
                 {
-                    return QuiescenceSearch(threadIndex, alpha, beta, plyFromRoot);
+                    depth--;
+                    verifyZugzwang = false;
+                    threadWorkerDatas[threadIndex].failHigh = true;
+                }
+                else
+                {
+                    return nullEvaluation;
                 }
             }
         }
         
-
-
 
         Span<Move> moves = stackalloc Move[MoveGenerator.MaxMoves];
         threadWorkerDatas[threadIndex].moveGenerator.GenerateMoves(threadWorkerDatas[threadIndex].board, ref moves, capturesOnly: false);
@@ -362,7 +363,7 @@ public class Search
             int eval;
             if (i == 0)
             {
-                eval = -SearchMoves(threadIndex, depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, numExtensions + extension, moves[i], isCapture);
+                eval = -SearchMoves(threadIndex, depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, verifyZugzwang,numExtensions + extension, moves[i], isCapture);
             }
             else
             {
@@ -381,10 +382,10 @@ public class Search
                     }
 
                 }
-                eval = -SearchMoves(threadIndex, depth - 1 - reduction, plyFromRoot + 1, -alpha - 1, -alpha, numExtensions, moves[i], isCapture);
+                eval = -SearchMoves(threadIndex, depth - 1 - reduction, plyFromRoot + 1, -alpha - 1, -alpha, verifyZugzwang,numExtensions, moves[i], isCapture);
                 if (eval > alpha)
                 {
-                    eval = -SearchMoves(threadIndex, depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, numExtensions + extension, moves[i], isCapture);
+                    eval = -SearchMoves(threadIndex, depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, verifyZugzwang, numExtensions + extension, moves[i], isCapture);
                 }
             }
 
@@ -394,6 +395,17 @@ public class Search
             {
                 return 0;
             }
+
+
+            if (threadWorkerDatas[threadIndex].failHigh && eval < beta)
+            {
+                depth++;
+                threadWorkerDatas[threadIndex].failHigh = false;
+                verifyZugzwang = true;
+                i--;
+                continue;
+            }
+
             threadWorkerDatas[threadIndex].searchDiagnostics.numNodes++;
 
             if (eval >= beta)
@@ -585,6 +597,7 @@ public class Search
         public MoveOrdering moveOrdering;
         public int currentDepth;
         public int bestEvalThisIteration;
+        public bool failHigh;
         public Move bestMoveThisIteration;
         public int lastIterationEval;
         public int bestEval;
@@ -605,6 +618,7 @@ public class Search
             moveOrdering = new MoveOrdering(moveGenerator, transpositionTable);
             currentDepth = 0;
             bestEvalThisIteration = int.MinValue;
+            failHigh = false;
             bestMoveThisIteration = Move.NullMove;
             lastIterationEval = 0;
             bestEval = 0;
