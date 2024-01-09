@@ -41,7 +41,7 @@ public class Search
     int currentIterativeSearchDepth;
 
     // Thread
-    int threadNumber = 20;
+    int threadNumber = 24;
     ThreadWorkerData[] threadWorkerDatas;
     // Diagnostics
     int currentIterationDepth;
@@ -288,7 +288,7 @@ public class Search
 
         
         // Null move prunning
-        if (depth >= 3 && !threadWorkerDatas[threadIndex].board.IsInCheck() && plyFromRoot > 0 && doNull && !isPvNode)
+        if (depth >= 1 && !threadWorkerDatas[threadIndex].board.IsInCheck() && plyFromRoot > 0 && doNull && !isPvNode)
         {
             threadWorkerDatas[threadIndex].board.MakeNullMove();
             int R = depth > 6 ? maxNullMoveR : minNullMoveR;
@@ -365,7 +365,7 @@ public class Search
 
             // PV Search
             int eval;
-            if (i == 0 && (isPvNode || isPvChild))
+            if (i == 0 && isPvNode)
             {
                 eval = -SearchMoves(threadIndex, depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, numExtensions + extension, moves[i], isCapture, isPvNode:true);
                 isPvNode = false;
