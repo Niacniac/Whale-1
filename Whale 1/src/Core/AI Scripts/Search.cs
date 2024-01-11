@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 public class Search
 {
     // Constants
-    const int maxThreads = 8;
+    const int maxThreads = 32;
     const int transpositionTableSize = 4000;
     const int maxExtentions = 16;
     public int aspirationWindows = 9;
@@ -41,7 +41,7 @@ public class Search
     int currentIterativeSearchDepth;
 
     // Thread
-    int threadNumber = 4;
+    int threadNumber = 24;
     ThreadWorkerData[] threadWorkerDatas;
     // Diagnostics
     int currentIterationDepth;
@@ -185,7 +185,7 @@ public class Search
                 threadWorkerDatas[thread].currentDepth = searchDepth;
                 
 
-                // Only display the info if this is the furthest thread
+                // Only display the info of the first thread
                 if (thread == 0)
                 {
                     string pvLineName = "";
@@ -236,7 +236,7 @@ public class Search
     
 
     // Main search function
-    int SearchMoves(int threadIndex,int depth, int plyFromRoot, int alpha, int beta, int numExtensions = 0, Move prevMove = default, bool prevWasCapture = false, bool doNull = true)
+    int SearchMoves(int threadIndex,int depth, int plyFromRoot, int alpha, int beta, int numExtensions = 0, Move prevMove = default, bool prevWasCapture = false, bool doNull = true, bool isPvNode = false)
     {
         if (abortSearch)
         {
@@ -279,13 +279,16 @@ public class Search
                 threadWorkerDatas[threadIndex].bestEvalThisIteration = tTable.GetStoredScore(threadWorkerDatas[threadIndex].board);
                 //Debug.Log ("move retrieved " + bestMoveThisIteration.Name + " Node type: " + tt.entries[tt.Index].nodeType + " depth: " + tt.entries[tt.Index].depth);
             }
+
+
+
             threadWorkerDatas[threadIndex].searchDiagnostics.tthit++;
             return ttVal;
         }
 
-
+        
         // Null move prunning
-        if (depth >= 3 && !threadWorkerDatas[threadIndex].board.IsInCheck() && plyFromRoot > 0 && doNull)
+        if (depth >= 1 && !threadWorkerDatas[threadIndex].board.IsInCheck() && plyFromRoot > 0 && doNull && !isPvNode)
         {
             threadWorkerDatas[threadIndex].board.MakeNullMove();
             int R = depth > 6 ? maxNullMoveR : minNullMoveR;
@@ -306,7 +309,6 @@ public class Search
             }
         }
         
-
 
 
         Span<Move> moves = stackalloc Move[MoveGenerator.MaxMoves];
@@ -334,7 +336,10 @@ public class Search
 
         int evalType = TranspositionTable.UpperBound;
         Move bestMoveInThisPosition = Move.NullMove;
-        bool isPV = !prevBestMove.IsNull;
+        bool isPvChild = isPvNode;
+        isPvNode = Move.SameMove(threadWorkerDatas[threadIndex].pvTable[0, plyFromRoot], moves[0]) && (isPvChild || plyFromRoot == 0);
+
+
         for (int i = 0; i < moves.Length; i++)
         {
             int capturedPieceType = Piece.PieceType(threadWorkerDatas[threadIndex].board.Square[moves[i].TargetSquare]);
@@ -360,9 +365,10 @@ public class Search
 
             // PV Search
             int eval;
-            if (i == 0)
+            if (i == 0 && isPvNode)
             {
-                eval = -SearchMoves(threadIndex, depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, numExtensions + extension, moves[i], isCapture);
+                eval = -SearchMoves(threadIndex, depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, numExtensions + extension, moves[i], isCapture, isPvNode:true);
+                isPvNode = false;
             }
             else
             {
