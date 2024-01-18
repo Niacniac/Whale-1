@@ -1,13 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Math;
-using System.Runtime.Intrinsics;
+﻿using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
-using System.Runtime.CompilerServices;
 
 namespace Whale_1.src.Core.AI_Scripts
 {

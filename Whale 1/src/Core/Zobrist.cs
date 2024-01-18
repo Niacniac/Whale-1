@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.IO;
-
+﻿
 public static class Zobrist
 {
     // Random numbers are generated for each aspect of the game state, and are used for calculating the hash:

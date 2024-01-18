@@ -1,7 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics;
-
+﻿
 public static class BitBoardUtility
 {
     public const ulong FileA = 0x101010101010101;

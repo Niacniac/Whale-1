@@ -1,4 +1,3 @@
-using System.Numerics;
 using Whale_1.src.Core;
 
 public class Evaluation

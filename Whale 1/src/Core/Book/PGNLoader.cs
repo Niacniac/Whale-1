@@ -1,7 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-
-namespace Chess {
+﻿namespace Chess {
 	using static BoardHelper;
 
 	public static class PGNLoader {
