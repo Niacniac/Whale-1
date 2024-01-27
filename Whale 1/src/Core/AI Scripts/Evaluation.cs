@@ -1,10 +1,13 @@
+using System.Runtime.Versioning;
 using Whale_1.src.Core;
+using Whale_1.src.Core.AI_Scripts;
 
 public class Evaluation
 {
     Board board;
     MoveGenerator moveGenerator;
     NnueLibraryLoader nnueLibraryLoader;
+    NNUE nnue;
 
     int[] nnue_Pieces;
     int[] nnue_Squares;
@@ -35,11 +38,11 @@ public class Evaluation
         500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
         500, 500, 500, 500, 500, 500, 500, 500, 500, 500
     };
-
+    [RequiresPreviewFeatures]
     public Evaluation()
     {
         moveGenerator = new MoveGenerator();
-
+        nnue = new NNUE();
         nnueLibraryLoader = new NnueLibraryLoader();
         nnueLibraryLoader.LoadNnueLibrary();
         nnueLibraryLoader.NnueInit("nn-62ef826d1a6d.nnue");
