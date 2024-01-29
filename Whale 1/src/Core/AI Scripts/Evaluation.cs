@@ -6,8 +6,7 @@ public class Evaluation
 {
     Board board;
     MoveGenerator moveGenerator;
-    NnueLibraryLoader nnueLibraryLoader;
-    NNUE nnue;
+    public NNUE nnue;
 
     int[] nnue_Pieces;
     int[] nnue_Squares;
@@ -38,14 +37,11 @@ public class Evaluation
         500, 500, 500, 500, 500, 500, 500, 500, 500, 500,
         500, 500, 500, 500, 500, 500, 500, 500, 500, 500
     };
-    [RequiresPreviewFeatures]
+
     public Evaluation()
     {
         moveGenerator = new MoveGenerator();
         nnue = new NNUE();
-        nnueLibraryLoader = new NnueLibraryLoader();
-        nnueLibraryLoader.LoadNnueLibrary();
-        nnueLibraryLoader.NnueInit("nn-62ef826d1a6d.nnue");
     }
 
     public int Evaluate(Board board, bool useNNUE)
@@ -56,44 +52,9 @@ public class Evaluation
         
         if (useNNUE)
         {
-            nnue_Pieces = new int[33];
-            nnue_Squares = new int[33];
-            int i = 2;
-            int j = 0;
-            foreach (int square in board.Square)
-            {
-                if (square == 0)
-                {
-                    j++;
-                    continue;
-                }
-
-                int nnue_Piece = GetNnuePieceCode(square);
-
-                if (nnue_Piece == 1)
-                {
-                    nnue_Pieces[0] = nnue_Piece;
-                    nnue_Squares[0] = j;
-                }
-                else if (nnue_Piece == 7)
-                {
-                    nnue_Pieces[1] = nnue_Piece;
-                    nnue_Squares[1] = j;
-                }
-                else
-                {
-                    nnue_Pieces[i] = nnue_Piece;
-                    nnue_Squares[i] = j;
-                    i++;
-                }
-                j++;
-            }
-            return nnueLibraryLoader.NnueEvaluate(board.MoveColourIndex, nnue_Pieces, nnue_Squares); 
+            int value = nnue.EvaluateNNUE(board.MoveColourIndex);
+            return value;
         }
-        
-
-
-
 
         whiteEval = new EvaluationData();
         blackEval = new EvaluationData();

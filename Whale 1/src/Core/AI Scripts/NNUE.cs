@@ -1,8 +1,6 @@
-﻿using System.Reflection.Emit;
-using System.Runtime.InteropServices;
-using System.Runtime.Intrinsics;
+﻿using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
-using System.Runtime.Versioning;
+
 
 namespace Whale_1.src.Core.AI_Scripts
 {
@@ -40,29 +38,10 @@ namespace Whale_1.src.Core.AI_Scripts
         // Output layer
         readonly LinearLayer OutputLayer = new(32, 1);
 
-        const string TestFEN = "r1bqkbnr/pP3ppp/2n5/4p3/8/3P4/PPP2PPP/RNBQKBNR w KQkq - 1 6";
 
         public NNUE() 
         {
             InitNet();
-            Board testBoard = new Board();
-            testBoard.LoadPosition(FenUtility.PositionFromFen(TestFEN));
-            features[0] = HalfKP.CreateActiveIndices(testBoard, 0);
-            features[1] = HalfKP.CreateActiveIndices(testBoard, 1);
-            RefreshAccumulator(transformer, acc, features[0], 0);
-            RefreshAccumulator(transformer, acc, features[1], 1);
-
-            Move testMove = new Move(49, 57, Move.PromoteToQueenFlag);
-
-            for (int i = 0; i < 2; i++)
-            {
-                (List<int> addedFeatures, List<int> removedFeatures) = HalfKP.CreateChangedIndices(testMove, testBoard, i);
-                acc = UpdateAccumulator(transformer, acc, addedFeatures, removedFeatures, i);
-            }
-
-            int testscore = EvaluateNNUE(0);
-            int testscore1 = EvaluateNNUE(1);
-            Console.WriteLine($" white : {testscore}, black : {testscore1}");
         }
 
         void InitNet()
@@ -71,8 +50,6 @@ namespace Whale_1.src.Core.AI_Scripts
             uint hashvalue;
 
             ReadEvalFile.ReadNetFile(netDirectory, out hashvalue, out architecture, transformer, HiddenLayer1, HiddenLayer2, OutputLayer);
-
-            Console.WriteLine($"Architecture : {architecture} \n hashValue : {hashvalue}");
         }
 
 
@@ -103,11 +80,39 @@ namespace Whale_1.src.Core.AI_Scripts
             sbyte[] reluOut2 = new sbyte[HiddenLayer2.Output_size];
             reluOut2 = Crelu32(linearOut2.Length, reluOut2, linearOut2);
 
-            int RawOutput = LinearOutput(OutputLayer, reluOut2) / 16;
-
-            int netOutput = sideToMove == 0 ? RawOutput : -RawOutput;
+            int netOutput = LinearOutput(OutputLayer, reluOut2) / 16;
 
             return netOutput;
+        }
+
+        // 0 No accumulators needs to be refreshed, 1 White accumulator needs to be refreshed, 2 Black accumulator needs to be refreshed
+        public int TryUpdateAccumulators(Move move, Board board, bool isReversedMove)
+        {
+            int refreshValue = 0;
+
+            if (board.KingSquare[board.MoveColourIndex] == move.StartSquare)
+            {
+                refreshValue = board.MoveColourIndex + 1;
+            }
+            else 
+            {
+                UpdateAccumulatorFromMove(move, board, isReversedMove, board.MoveColourIndex);
+            }
+            UpdateAccumulatorFromMove(move, board, isReversedMove, board.OpponentColourIndex);
+
+            return refreshValue;
+        }
+
+        void UpdateAccumulatorFromMove(Move move, Board board, bool isReverseMove, int color)
+        {
+            (List<int> addedFeatures, List<int> removedFeatures) = HalfKP.CreateChangedIndices(move, board, color, isReverseMove);
+            acc = UpdateAccumulator(transformer, acc, addedFeatures, removedFeatures, color);
+        }
+
+        public void SetAccumulatorFromBoard(Board board, int color)
+        {
+            features[color] = HalfKP.CreateActiveIndices(board, color);
+            RefreshAccumulator(transformer, acc, features[color], color);
         }
 
         unsafe void RefreshAccumulator(FeatureTransformer transformer, Accumulator acc, List<int> activeFeatures, int perspective)
@@ -367,32 +372,61 @@ namespace Whale_1.src.Core.AI_Scripts
             // Create the Lists of added features and removed features
             // The Board must be the one before making the move so we can know if a piece has been captured and remove its feature
             // This is used for the update accumulator it must not be used in case of king move (also castling) 
-            public static (List<int> addedFeatureIndices, List<int> removedFeatureIndices) CreateChangedIndices(Move move, Board pastBoard, int perspective)
+            public static (List<int> addedFeatureIndices, List<int> removedFeatureIndices) CreateChangedIndices(Move move, Board pastBoard, int perspective, bool IsReverseMove)
             {
 
                 List<int> addedFeatureIndices = new List<int>();
                 List<int> removedFeatureIndices = new List<int>();
+                bool isNotKingMove = pastBoard.Square[move.StartSquare] != Piece.WhiteKing && pastBoard.Square[move.StartSquare] != Piece.BlackKing;
 
-                
                 int kingSquare = Orient(perspective, pastBoard.KingSquare[perspective]);
 
                 // All case of removed feature and added feature
-                // The Piece that moved has been removed from the square
-                removedFeatureIndices.Add(MakeIndex(perspective, move.StartSquare, pastBoard.Square[move.StartSquare], kingSquare));
+                // The Piece that moved has been removed from the square, if it's the king we do nothing
+                if (isNotKingMove)
+                {
+                    removedFeatureIndices.Add(MakeIndex(perspective, move.StartSquare, pastBoard.Square[move.StartSquare], kingSquare));
+                }
+
                 // The Piece that's been captured
                 if (pastBoard.Square[move.TargetSquare] != Piece.None)
                 {
                     removedFeatureIndices.Add(MakeIndex(perspective, move.TargetSquare, pastBoard.Square[move.TargetSquare], kingSquare));
                 }
+                else if (move.MoveFlag == Move.EnPassantCaptureFlag)
+                {
+                    int horizontalValue = pastBoard.IsWhiteToMove ? -8 : 8;
+                    removedFeatureIndices.Add(MakeIndex(perspective, move.TargetSquare + horizontalValue, pastBoard.Square[move.TargetSquare + horizontalValue], kingSquare));
+                }
+
                 // The piece promoted is added
                 if (move.IsPromotion)
                 {
-                    addedFeatureIndices.Add(MakeIndex(perspective, move.TargetSquare, move.PromotionPieceType, kingSquare));
+                    int pieceTypePromoted = move.PromotionPieceType;
+                    pieceTypePromoted = Piece.MakePiece(pieceTypePromoted, pastBoard.IsWhiteToMove);
+                    addedFeatureIndices.Add(MakeIndex(perspective, move.TargetSquare, pieceTypePromoted, kingSquare));
                 }
-                else
+                else if (isNotKingMove)
                 {
-                    // if it isn't a promotion then the piece added is the one that was on the start square
+                    // if it isn't a promotion then the piece added is the one that was on the start square, if it's a king we do nothing
                     addedFeatureIndices.Add(MakeIndex(perspective, move.TargetSquare, pastBoard.Square[move.StartSquare], kingSquare));
+                }
+
+                // Handle castling
+                if (move.MoveFlag == Move.CastleFlag)
+                {
+                    int rookPiece = Piece.MakePiece(Piece.Rook, pastBoard.IsWhiteToMove);
+                    bool kingside = move.TargetSquare == BoardHelper.g1 || move.TargetSquare == BoardHelper.g8;
+                    int castlingRookFromIndex = kingside ? move.TargetSquare + 1 : move.TargetSquare - 2;
+                    int castlingRookToIndex = kingside ? move.TargetSquare - 1 : move.TargetSquare + 1;
+
+                    removedFeatureIndices.Add(MakeIndex(perspective, castlingRookFromIndex, rookPiece, kingSquare));
+                    addedFeatureIndices.Add(MakeIndex(perspective, castlingRookToIndex, rookPiece, kingSquare));
+                }
+
+                if (IsReverseMove)
+                {
+                    return (removedFeatureIndices, addedFeatureIndices);
                 }
 
                 return (addedFeatureIndices, removedFeatureIndices);
@@ -487,11 +521,6 @@ namespace Whale_1.src.Core.AI_Scripts
                 accu = new short[2][];
                 accu[0] = new short[Size];
                 accu[1] = new short[Size];
-            }
-
-            public short[] ReturnSide(byte color)
-            {
-                return accu[color];
             }
         }
 
