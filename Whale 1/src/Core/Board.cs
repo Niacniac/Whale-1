@@ -125,8 +125,8 @@ public sealed class Board
             {
                 int rookPiece = Piece.MakePiece(Piece.Rook, MoveColour);
                 bool kingside = targetSquare == BoardHelper.g1 || targetSquare == BoardHelper.g8;
-                int castlingRookFromIndex = (kingside) ? targetSquare + 1 : targetSquare - 2;
-                int castlingRookToIndex = (kingside) ? targetSquare - 1 : targetSquare + 1;
+                int castlingRookFromIndex = kingside ? targetSquare + 1 : targetSquare - 2;
+                int castlingRookToIndex = kingside ? targetSquare - 1 : targetSquare + 1;
 
                 // Update rook position
                 BitBoardUtility.ToggleSquares(ref PieceBitboards[rookPiece], castlingRookFromIndex, castlingRookToIndex);

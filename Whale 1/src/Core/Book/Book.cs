@@ -1,8 +1,4 @@
 ﻿
-using System.Collections.Generic;
-using System.Collections;
-using System;
-
 public class Book
 {
     readonly Dictionary<string, BookMove[]> movesByPosition;

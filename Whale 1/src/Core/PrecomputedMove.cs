@@ -1,5 +1,5 @@
 
-using System.Collections.Generic;
+
 using static System.Math;
 
 public static class PrecomputedMoveData

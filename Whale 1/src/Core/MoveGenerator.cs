@@ -1,5 +1,3 @@
-
-using System;
 using static PrecomputedMoveData;
 
 public class MoveGenerator

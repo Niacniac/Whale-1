@@ -1,4 +1,3 @@
-
 using static PrecomputedMagics;
 
 // Helper class for magic bitboards.
