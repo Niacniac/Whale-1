@@ -1,5 +1,6 @@
 ﻿using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+using System.Diagnostics;
 
 
 namespace Whale_1.src.Core.AI_Scripts
@@ -53,7 +54,7 @@ namespace Whale_1.src.Core.AI_Scripts
         }
 
 
-        // bug test : crelu32 & 16 work, need to create a special function for the output layer
+        // Forward propagation in the network
         public int EvaluateNNUE(int sideToMove)
         {
             short[] input = new short[512];
@@ -65,22 +66,24 @@ namespace Whale_1.src.Core.AI_Scripts
                 input[i] = acc.accu[sideToMove][i];
                 input[i + 256] = acc.accu[notSideToMove][i];
             }
+
             sbyte[] reluOut0 = new sbyte[2 * 256];
             reluOut0 = Crelu16(input.Length, reluOut0, input);
-
+            
             int[] linearOut1 = new int[HiddenLayer1.Output_size];
             linearOut1 = DenseLinear(HiddenLayer1, linearOut1, reluOut0);
-
+            
             sbyte[] reluOut1 = new sbyte[HiddenLayer1.Output_size];
             reluOut1 = Crelu32(linearOut1.Length, reluOut1, linearOut1);
-
+            
             int[] linearOut2 = new int[HiddenLayer2.Output_size];
-            linearOut2 = DenseLinear(HiddenLayer2, linearOut2, reluOut1); 
-
+            linearOut2 = DenseLinear(HiddenLayer2, linearOut2, reluOut1);
+            
             sbyte[] reluOut2 = new sbyte[HiddenLayer2.Output_size];
             reluOut2 = Crelu32(linearOut2.Length, reluOut2, linearOut2);
-
+            
             int netOutput = LinearOutput(OutputLayer, reluOut2) / 16;
+
 
             return netOutput;
         }
@@ -423,6 +426,7 @@ namespace Whale_1.src.Core.AI_Scripts
                     removedFeatureIndices.Add(MakeIndex(perspective, castlingRookFromIndex, rookPiece, kingSquare));
                     addedFeatureIndices.Add(MakeIndex(perspective, castlingRookToIndex, rookPiece, kingSquare));
                 }
+
 
                 if (IsReverseMove)
                 {

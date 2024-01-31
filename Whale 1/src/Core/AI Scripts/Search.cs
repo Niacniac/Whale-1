@@ -17,7 +17,7 @@ public class Search
     const int maxNullMoveR = 4;
     const int minNullMoveR = 4;
     const int nullMoveDepthReduction = 4;
-    const bool allowNNUE = true;
+    const bool allowNNUE = false;
     public event Action<Move>? OnSearchComplete;
 
     bool hasSearchedAtLeastOneMove;
@@ -394,7 +394,7 @@ public class Search
                     }
                     else
                     {
-                        reduction = depth / 3;
+                        reduction = 4 + depth / 3;
                     }
 
                 }
