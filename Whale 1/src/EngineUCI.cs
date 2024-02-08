@@ -97,8 +97,12 @@ public class EngineUCI
 			player.SetPosition(FenUtility.StartPositionFEN);
 		}
 		else if (message.ToLower().Contains("fen")) {
-			string customFen = TryGetLabelledValue(message, "fen", positionLabels);
-			player.SetPosition(customFen);
+			try
+			{
+                string customFen = TryGetLabelledValue(message, "fen", positionLabels);
+                player.SetPosition(customFen);
+            }
+			catch { Console.WriteLine("Invalid fen syntax")}
 		}
 		else
 		{
