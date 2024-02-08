@@ -53,7 +53,6 @@ namespace Whale_1.src.Core.AI_Scripts
         }
 
 
-        // bug test : crelu32 & 16 work, need to create a special function for the output layer
         public int EvaluateNNUE(int sideToMove)
         {
             short[] input = new short[512];
