@@ -19,6 +19,7 @@ public class Evaluation
     public const int bishopValue = 310;
     public const int rookValue = 500;
     public const int queenValue = 900;
+    public static readonly int[] pieceValueArray = { 0, pawnValue, knightValue, bishopValue, rookValue, queenValue};
 
     static readonly int[] passedPawnBonuses = { 0, 120, 80, 50, 30, 15, 15 };
     static readonly int[] isolatedPawnPenaltyByCount = { 0, -10, -25, -50, -75, -75, -75, -75, -75 };
@@ -53,6 +54,9 @@ public class Evaluation
         if (useNNUE)
         {
             int value = nnue.EvaluateNNUE(board.MoveColourIndex);
+
+            value *= (1 - (board.CurrentGameState.fiftyMoveCounter / 100)); // take into account the fifty move rule 
+
             return value;
         }
 
