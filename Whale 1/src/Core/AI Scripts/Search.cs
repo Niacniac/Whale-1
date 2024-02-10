@@ -280,8 +280,8 @@ public class Search
             return ttVal;
         }
 
-
-        // Null move prunning
+        
+        // Null move prunning with verification search to avoid zugswang to false the evaluation
         if (depth >= 1 && !threadWorkerDatas[threadIndex].board.IsInCheck() && plyFromRoot > 0 && doNull && !isPvNode && plyFromRoot >= threadWorkerDatas[threadIndex].nmpMinPly)
         {
             threadWorkerDatas[threadIndex].board.MakeNullMove();
@@ -675,7 +675,7 @@ public class Search
         return threadWorkerDatas[thread].currentDepth > max;
     }
 
-    public struct ThreadWorkerData
+    public class ThreadWorkerData
     {
         public Board board;
         public RepetitionTable repetitionTable;
