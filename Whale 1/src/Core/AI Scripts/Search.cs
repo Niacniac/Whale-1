@@ -204,7 +204,7 @@ public class Search
                         nps = 0f;
                     }
                     int nodesPerSecond = Convert.ToInt32(nps);
-                    Console.WriteLine($"info depth {threadWorkerDatas[thread].currentDepth} score cp {threadWorkerDatas[thread].bestEval} nodes {totalNodes} nps {nodesPerSecond} time {totalElapsedTime.Milliseconds + totalElapsedTime.Seconds * 1000 + totalElapsedTime.Minutes * 60 * 1000} pv {pvLineName}hashfull {Convert.ToInt32(perMillTTfull)} tthits {threadWorkerDatas[thread].searchDiagnostics.tthit} numEval {threadWorkerDatas[thread].searchDiagnostics.numPositionsEvaluated}");
+                    Console.WriteLine($"info depth {threadWorkerDatas[thread].currentDepth} score cp {threadWorkerDatas[thread].bestEval} nodes {totalNodes} nps {nodesPerSecond} hashfull {Convert.ToInt32(perMillTTfull)} time {totalElapsedTime.Milliseconds + totalElapsedTime.Seconds * 1000 + totalElapsedTime.Minutes * 60 * 1000} pv {pvLineName}");
                     // Update diagnostics
                     debugInfo += "\nIteration result: " + MoveUtility.GetMoveNameUCI(threadWorkerDatas[thread].bestMove) + " Eval: " + threadWorkerDatas[thread].bestEval;
                     if (IsMateScore(threadWorkerDatas[thread].bestEval))
@@ -604,30 +604,45 @@ public class Search
 
     void MakeMove(int threadIndex, Move move)
     {
-        int refreshValue = threadWorkerDatas[threadIndex].evaluation.nnue.TryUpdateAccumulators(move, threadWorkerDatas[threadIndex].board, false);
-        threadWorkerDatas[threadIndex].board.MakeMove(move, true);
-        if (refreshValue == 1)
+        if (allowNNUE)
         {
-            threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 0);
+            int refreshValue = threadWorkerDatas[threadIndex].evaluation.nnue.TryUpdateAccumulators(move, threadWorkerDatas[threadIndex].board, false);
+            threadWorkerDatas[threadIndex].board.MakeMove(move, true);
+            if (refreshValue == 1)
+            {
+                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 0);
+            }
+            else if (refreshValue == 2)
+            {
+                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 1);
+            }
         }
-        else if (refreshValue == 2)
+        else
         {
-            threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 1);
+            threadWorkerDatas[threadIndex].board.MakeMove(move, true);
         }
     }
 
     void UnmakeMove(int threadIndex, Move move)
     {
-        threadWorkerDatas[threadIndex].board.UnmakeMove(move, true);
-        int refreshValue = threadWorkerDatas[threadIndex].evaluation.nnue.TryUpdateAccumulators(move, threadWorkerDatas[threadIndex].board, true);
-        if (refreshValue == 1)
+        if (allowNNUE)
         {
-            threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 0);
+            threadWorkerDatas[threadIndex].board.UnmakeMove(move, true);
+            int refreshValue = threadWorkerDatas[threadIndex].evaluation.nnue.TryUpdateAccumulators(move, threadWorkerDatas[threadIndex].board, true);
+            if (refreshValue == 1)
+            {
+                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 0);
+            }
+            else if (refreshValue == 2)
+            {
+                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 1);
+            }
         }
-        else if (refreshValue == 2)
+        else
         {
-            threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 1);
+            threadWorkerDatas[threadIndex].board.UnmakeMove(move, true);
         }
+
     }
 
     void UpdateWorkersDatas()

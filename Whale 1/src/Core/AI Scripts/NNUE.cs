@@ -513,7 +513,7 @@ namespace Whale_1.src.Core.AI_Scripts
             const int SQUARE_NONE = 64;
         }
 
-        public class Accumulator
+        public struct Accumulator
         {
             //Accumulator (Acc[0] White, Acc[1] Black)
             public short[][] accu;
@@ -526,34 +526,23 @@ namespace Whale_1.src.Core.AI_Scripts
             }
         }
 
-        public class LinearLayer
+        public struct LinearLayer(int ColumnSize, int RowSize)
         {
-            public sbyte[] weight; // we use a 1D array instead of 2D
-            public int[] bias;
-            public int Input_size;
-            public int Output_size;
-            public LinearLayer(int ColumnSize, int RowSize)
-            {
-                Input_size = ColumnSize;
-                Output_size = RowSize;
-                weight = new sbyte[ColumnSize * RowSize];
-                bias = new int[RowSize];
-            }
+            public sbyte[] weight = new sbyte[ColumnSize * RowSize]; // we use a 1D array instead of 2D
+            public int[] bias = new int[RowSize];
+
+            public int Input_size = ColumnSize;
+            public int Output_size = RowSize;
         }
 
-        public class FeatureTransformer
+
+        public struct FeatureTransformer(int ColumnSize, int RowSize)
         {
-            public short[] weight;// we use a 1D array instead of 2D
-            public short[] bias;
-            public int Input_size;
-            public int Output_size;
-            public FeatureTransformer(int ColumnSize, int RowSize)
-            {
-                Input_size = ColumnSize;
-                Output_size = RowSize;
-                weight = new short[ColumnSize * RowSize];
-                bias = new short[RowSize];
-            }
+            public short[] weight = new short[ColumnSize * RowSize];// we use a 1D array instead of 2D
+            public short[] bias = new short[RowSize];
+
+            public int Input_size = ColumnSize;
+            public int Output_size = RowSize;
         }
 
     }
