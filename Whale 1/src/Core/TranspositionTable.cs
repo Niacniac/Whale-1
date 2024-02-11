@@ -20,6 +20,7 @@ public class TranspositionTable
 
     public Entry[] entries;
 
+    public ulong entriesNum;
     public readonly ulong count;
     public bool enabled = true;
 
@@ -32,6 +33,7 @@ public class TranspositionTable
 
         count = numEntries;
         entries = new Entry[numEntries];
+        entriesNum = 0;
     }
 
     public void Clear()
@@ -40,6 +42,7 @@ public class TranspositionTable
         {
             entries[i] = new Entry();
         }
+        entriesNum = 0;
     }
 
     /*
@@ -144,7 +147,10 @@ public class TranspositionTable
 
 
             Entry entry = new Entry(board.ZobristKey, age, smp_data,smp_key);
-            entries[Index(board)] = entry;
+            ulong index = Index(board);
+            if (entries[index].SMP_data == 0) { entriesNum++; }
+            entries[index] = entry;
+
         }
     }
 

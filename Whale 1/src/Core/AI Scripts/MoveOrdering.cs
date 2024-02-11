@@ -50,7 +50,7 @@ public class MoveOrdering
 
 
 
-    public void OrderMoves(Move hashMove, Board board, System.Span<Move> moves, ulong oppAttacks, ulong oppPawnAttacks, bool inQSearch, int ply)
+    public void OrderMoves(Move hashMove, Board board, System.Span<Move> moves, ulong oppAttacks, ulong oppPawnAttacks, bool inQSearch, int ply, bool isRootNode, int threadIndex)
     {
         //Move hashMove = inQSearch ? invalidMove : transpositionTable.GetStoredMove();
 
@@ -135,6 +135,12 @@ public class MoveOrdering
 
         //Sort(moves, moveScores);
         Quicksort(moves, moveScores, 0, moves.Length - 1);
+
+        // Swap move based on a number of swap
+        if (isRootNode)
+        {
+            SwapMoves(moves, threadIndex);
+        }   
     }
 
     static int GetPieceValue(int pieceType)
@@ -154,6 +160,26 @@ public class MoveOrdering
             default:
                 return 0;
         }
+    }
+
+    public static void SwapMoves(System.Span<Move> moves, int numberOfSwaps)
+    {
+        int length = moves.Length;
+
+        if (numberOfSwaps <= 0 || length <= 1 || numberOfSwaps >= length)
+        {
+            // Nothing to change
+            return;
+        }
+
+        Move temp = moves[numberOfSwaps]; // move that will get in front
+
+        for (int j = numberOfSwaps; j > 0; j--)
+        {
+            moves[j] = moves[j - 1];
+        }
+
+        moves[0] = temp;
     }
 
     public string GetScore(int index)

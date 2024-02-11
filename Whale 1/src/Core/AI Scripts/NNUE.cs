@@ -1,5 +1,6 @@
 ﻿using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+using System.Diagnostics;
 
 
 namespace Whale_1.src.Core.AI_Scripts
@@ -24,27 +25,41 @@ namespace Whale_1.src.Core.AI_Scripts
         public List<int>[] features = new List<int>[2];
 
         //feature transformer
-        readonly FeatureTransformer transformer = new(41024, KHALFDIMENSION);
+        static readonly FeatureTransformer transformer = new(41024, KHALFDIMENSION);
 
         //output of the Feature transformers
         public Accumulator acc = new(KHALFDIMENSION);
 
         // Hidden layer 1
-        readonly LinearLayer HiddenLayer1 = new(512, 32);
+        static readonly LinearLayer HiddenLayer1 = new(512, 32);
 
         // Hidden layer 2
-        readonly LinearLayer HiddenLayer2 = new(32, 32);
+        static readonly LinearLayer HiddenLayer2 = new(32, 32);
 
         // Output layer
-        readonly LinearLayer OutputLayer = new(32, 1);
+        static readonly LinearLayer OutputLayer = new(32, 1);
 
+        // Used to looad the Network only once
+        static private bool isNetLoaded = false;
+
+        // Private variables of the forward propagation
+        private short[] input = new short[512];
+        private sbyte[] reluOut0 = new sbyte[2 * 256];
+        private int[] linearOut1 = new int[HiddenLayer1.Output_size];
+        private sbyte[] reluOut1 = new sbyte[HiddenLayer1.Output_size];
+        private int[] linearOut2 = new int[HiddenLayer2.Output_size];
+        private sbyte[] reluOut2 = new sbyte[HiddenLayer2.Output_size];
 
         public NNUE() 
         {
-            InitNet();
+            if (!isNetLoaded)
+            {
+                InitNet();
+                isNetLoaded = true;
+            }
         }
 
-        void InitNet()
+        static void InitNet()
         {
             string architecture = string.Empty;
             uint hashvalue;
@@ -53,33 +68,26 @@ namespace Whale_1.src.Core.AI_Scripts
         }
 
 
+        // Forward propagation in the network
         public int EvaluateNNUE(int sideToMove)
         {
-            short[] input = new short[512];
             int notSideToMove = 1 - sideToMove;
 
+            Array.Copy(acc.accu[sideToMove], 0, input, 0, 256);
+            Array.Copy(acc.accu[notSideToMove], 0, input, 256, 256);
 
-            for (int i = 0; i < 256; i++)
-            {
-                input[i] = acc.accu[sideToMove][i];
-                input[i + 256] = acc.accu[notSideToMove][i];
-            }
-            sbyte[] reluOut0 = new sbyte[2 * 256];
-            reluOut0 = Crelu16(input.Length, reluOut0, input);
-
-            int[] linearOut1 = new int[HiddenLayer1.Output_size];
-            linearOut1 = DenseLinear(HiddenLayer1, linearOut1, reluOut0);
-
-            sbyte[] reluOut1 = new sbyte[HiddenLayer1.Output_size];
-            reluOut1 = Crelu32(linearOut1.Length, reluOut1, linearOut1);
-
-            int[] linearOut2 = new int[HiddenLayer2.Output_size];
-            linearOut2 = DenseLinear(HiddenLayer2, linearOut2, reluOut1); 
-
-            sbyte[] reluOut2 = new sbyte[HiddenLayer2.Output_size];
-            reluOut2 = Crelu32(linearOut2.Length, reluOut2, linearOut2);
-
+            Crelu16(input.Length, reluOut0, input);
+            
+            DenseLinear(HiddenLayer1, linearOut1, reluOut0);
+            
+            Crelu32(linearOut1.Length, reluOut1, linearOut1);
+            
+            DenseLinear(HiddenLayer2, linearOut2, reluOut1);
+            
+            Crelu32(linearOut2.Length, reluOut2, linearOut2);
+            
             int netOutput = LinearOutput(OutputLayer, reluOut2) / 16;
+
 
             return netOutput;
         }
@@ -213,7 +221,7 @@ namespace Whale_1.src.Core.AI_Scripts
         } 
 
         // ClippedReLU from the output of the accumulutor in int16 
-        unsafe sbyte[] Crelu16(int size, sbyte[] output, short[] input)
+        unsafe void Crelu16(int size, sbyte[] output, short[] input)
         {
             const int IN_REGISTER_WIDTH = 256 / 16;
             const int OUT_REGISTER_WIDTH = 256 / 8;
@@ -242,11 +250,9 @@ namespace Whale_1.src.Core.AI_Scripts
                     Avx2.Store(currentAdress, result);
                 }              
             }
-
-            return output;
         }
 
-        unsafe sbyte[] Crelu32(int size, sbyte[] output, int[] input)
+        unsafe void Crelu32(int size, sbyte[] output, int[] input)
         {
             const int IN_REGISTER_WIDTH = 256 / 32;
             const int OUT_REGISTER_WIDTH = 256 / 8;
@@ -273,11 +279,9 @@ namespace Whale_1.src.Core.AI_Scripts
                     }
                 }
             }
-
-            return output;
         }
 
-        unsafe int[] DenseLinear(LinearLayer layer, int[] output, sbyte[] input)
+        unsafe void DenseLinear(LinearLayer layer, int[] output, sbyte[] input)
         {
             const int REGISTER_WIDTH = 256 / 8;
             int numInChunks = layer.Input_size / REGISTER_WIDTH;
@@ -331,8 +335,6 @@ namespace Whale_1.src.Core.AI_Scripts
                     Avx2.Store(currentAddress, outval);
                 }
             }
-
-            return output;
         }
 
         unsafe int LinearOutput(LinearLayer outputLayer, sbyte[] input)
@@ -423,6 +425,7 @@ namespace Whale_1.src.Core.AI_Scripts
                     addedFeatureIndices.Add(MakeIndex(perspective, castlingRookToIndex, rookPiece, kingSquare));
                 }
 
+
                 if (IsReverseMove)
                 {
                     return (removedFeatureIndices, addedFeatureIndices);
@@ -510,7 +513,7 @@ namespace Whale_1.src.Core.AI_Scripts
             const int SQUARE_NONE = 64;
         }
 
-        public class Accumulator
+        public struct Accumulator
         {
             //Accumulator (Acc[0] White, Acc[1] Black)
             public short[][] accu;
@@ -523,34 +526,23 @@ namespace Whale_1.src.Core.AI_Scripts
             }
         }
 
-        public class LinearLayer
+        public struct LinearLayer(int ColumnSize, int RowSize)
         {
-            public sbyte[] weight; // we use a 1D array instead of 2D
-            public int[] bias;
-            public int Input_size;
-            public int Output_size;
-            public LinearLayer(int ColumnSize, int RowSize)
-            {
-                Input_size = ColumnSize;
-                Output_size = RowSize;
-                weight = new sbyte[ColumnSize * RowSize];
-                bias = new int[RowSize];
-            }
+            public sbyte[] weight = new sbyte[ColumnSize * RowSize]; // we use a 1D array instead of 2D
+            public int[] bias = new int[RowSize];
+
+            public int Input_size = ColumnSize;
+            public int Output_size = RowSize;
         }
 
-        public class FeatureTransformer
+
+        public struct FeatureTransformer(int ColumnSize, int RowSize)
         {
-            public short[] weight;// we use a 1D array instead of 2D
-            public short[] bias;
-            public int Input_size;
-            public int Output_size;
-            public FeatureTransformer(int ColumnSize, int RowSize)
-            {
-                Input_size = ColumnSize;
-                Output_size = RowSize;
-                weight = new short[ColumnSize * RowSize];
-                bias = new short[RowSize];
-            }
+            public short[] weight = new short[ColumnSize * RowSize];// we use a 1D array instead of 2D
+            public short[] bias = new short[RowSize];
+
+            public int Input_size = ColumnSize;
+            public int Output_size = RowSize;
         }
 
     }

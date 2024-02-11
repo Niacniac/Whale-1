@@ -9,7 +9,8 @@ public class Search
     const int maxThreads = 32;
     const int transpositionTableSize = 4000;
     const int maxExtentions = 16;
-    const double aspirationWindows = 5f/3f;
+    const double aspirationWindowExponent = 3.5d;
+    const int aspirationWindowBase = 15;
     const int immediateMateScore = 100000;
     const int positiveInfinity = 9999999;
     const int negativeInfinity = -positiveInfinity;
@@ -17,6 +18,7 @@ public class Search
     const int maxNullMoveR = 4;
     const int minNullMoveR = 4;
     const int nullMoveDepthReduction = 4;
+    const int futilityMargin = 350; // value of a piece
     const bool allowNNUE = true;
     public event Action<Move>? OnSearchComplete;
 
@@ -115,14 +117,16 @@ public class Search
         int b = positiveInfinity;
         int alphaAspirationWindowsFailed = 0;
         int betaAspirationWindowsFailed = 0;
-        threadWorkerDatas[thread].searchIterationTimer.Start();
+        int lastInBoundEval = 0;
+        if (thread == 0) { age++; }
         for (int searchDepth = 1; searchDepth <= 220; searchDepth++)
         {
+            threadWorkerDatas[thread].searchIterationTimer.Start();
             hasSearchedAtLeastOneMove = false;
             debugInfo += "\nStarting Iteration: " + searchDepth;
             currentIterationDepth = searchDepth;
 
-            threadWorkerDatas[thread].lastIterationEval = SearchMoves(thread,searchDepth, 0, a, b);
+            threadWorkerDatas[thread].lastIterationEval = SearchMoves(thread,searchDepth, 0, a, b, isPvNode:true);
             if (abortSearch)
             {
                 if (hasSearchedAtLeastOneMove)
@@ -140,10 +144,10 @@ public class Search
             }
             else
             {
-                age++;
 
                 int alphaIncrement;
                 int betaIncrement;
+                // If the eval is outside the aspiration windows we have to research with a bigger window
                 if (threadWorkerDatas[thread].lastIterationEval <= a || threadWorkerDatas[thread].lastIterationEval >= b)
                 {
                     if (threadWorkerDatas[thread].lastIterationEval <= a)
@@ -154,21 +158,24 @@ public class Search
                     {
                         betaAspirationWindowsFailed++;
                     }
-                    alphaIncrement = 15 * (int)Pow(aspirationWindows, alphaAspirationWindowsFailed);
-                    betaIncrement = 15 * (int)Pow(aspirationWindows, betaAspirationWindowsFailed);
-                    a = threadWorkerDatas[thread].lastIterationEval - alphaIncrement;
-                    b = threadWorkerDatas[thread].lastIterationEval + betaIncrement;
+
+                    alphaIncrement = aspirationWindowBase * (int)Pow(aspirationWindowExponent, alphaAspirationWindowsFailed);
+                    betaIncrement = aspirationWindowBase * (int)Pow(aspirationWindowExponent, betaAspirationWindowsFailed);
+                    a = Clamp(lastInBoundEval - alphaIncrement, int.MinValue, lastInBoundEval);
+                    b = Clamp(lastInBoundEval + betaIncrement, lastInBoundEval, int.MaxValue);
                     searchDepth--;
 
                     continue;
                 }
 
+                // The eval is in the bound of the aspiration window
                 alphaAspirationWindowsFailed = 0;
                 betaAspirationWindowsFailed = 0;
-                alphaIncrement = 15 * (int)Pow(aspirationWindows, alphaAspirationWindowsFailed);
-                betaIncrement = 15 * (int)Pow(aspirationWindows, betaAspirationWindowsFailed);
+                alphaIncrement = aspirationWindowBase * (int)Pow(aspirationWindowExponent, alphaAspirationWindowsFailed);
+                betaIncrement = aspirationWindowBase * (int)Pow(aspirationWindowExponent, betaAspirationWindowsFailed);
                 a = threadWorkerDatas[thread].bestEvalThisIteration - alphaIncrement;
                 b = threadWorkerDatas[thread].bestEvalThisIteration + betaIncrement;
+                lastInBoundEval = threadWorkerDatas[thread].bestEvalThisIteration;
 
                 threadWorkerDatas[thread].bestMove = threadWorkerDatas[thread].bestMoveThisIteration;
                 threadWorkerDatas[thread].bestEval = threadWorkerDatas[thread].bestEvalThisIteration;
@@ -178,23 +185,26 @@ public class Search
                 // Only display the info of the first thread
                 if (thread == 0)
                 {
+                    threadWorkerDatas[thread].searchIterationTimer.Stop();
                     string pvLineName = "";
                     for (int count = 0; count < threadWorkerDatas[thread].pvLength[0]; count++)
                     {
                         pvLineName += MoveUtility.GetMoveNameUCI(threadWorkerDatas[thread].pvTable[0, count]).Replace("=", "") + " ";
                     }
 
+                    float perMillTTfull = Convert.ToSingle(tTable.entriesNum) / Convert.ToSingle(tTable.count) * 1000f;
 
-                    var timeElapsedInIteration = threadWorkerDatas[thread].searchIterationTimer.Elapsed;
                     var totalElapsedTime = searchTotalTimer.Elapsed;
-                    float totalElapsedTimeSecond = totalElapsedTime.Seconds + totalElapsedTime.Milliseconds / 1000f;
-                    float nps = threadWorkerDatas[thread].searchDiagnostics.numNodes / totalElapsedTimeSecond;
+                    int totalNodes = GetTotalNodes();
+                    float totalElapsedTimeSecond = totalElapsedTime.Seconds + totalElapsedTime.Milliseconds / 1000f + totalElapsedTime.Minutes * 60f;
+                    float nps = totalNodes / totalElapsedTimeSecond;
+                    threadWorkerDatas[thread].searchIterationTimer.Reset();
                     if (nps > Int32.MaxValue || nps != nps)
                     {
                         nps = 0f;
                     }
                     int nodesPerSecond = Convert.ToInt32(nps);
-                    Console.WriteLine($"info depth {threadWorkerDatas[thread].currentDepth} score cp {threadWorkerDatas[thread].bestEval} nodes {threadWorkerDatas[thread].searchDiagnostics.numNodes} nps {nodesPerSecond} time {timeElapsedInIteration.Milliseconds + timeElapsedInIteration.Seconds * 1000} pv {pvLineName} tthits {threadWorkerDatas[thread].searchDiagnostics.tthit}");
+                    Console.WriteLine($"info depth {threadWorkerDatas[thread].currentDepth} score cp {threadWorkerDatas[thread].bestEval} nodes {totalNodes} nps {nodesPerSecond} hashfull {Convert.ToInt32(perMillTTfull)} time {totalElapsedTime.Milliseconds + totalElapsedTime.Seconds * 1000 + totalElapsedTime.Minutes * 60 * 1000} pv {pvLineName}");
                     // Update diagnostics
                     debugInfo += "\nIteration result: " + MoveUtility.GetMoveNameUCI(threadWorkerDatas[thread].bestMove) + " Eval: " + threadWorkerDatas[thread].bestEval;
                     if (IsMateScore(threadWorkerDatas[thread].bestEval))
@@ -202,7 +212,7 @@ public class Search
                         debugInfo += " Mate in ply: " + NumPlyToMateFromScore(threadWorkerDatas[thread].bestEval);
                     }
                 }
-                threadWorkerDatas[thread].searchIterationTimer.Restart();
+                
 
 
                 threadWorkerDatas[thread].bestEvalThisIteration = int.MinValue;
@@ -233,6 +243,8 @@ public class Search
             return 0;
         }
 
+        bool isRootNode = plyFromRoot == 0;
+
         // init PV length
         threadWorkerDatas[threadIndex].pvLength[plyFromRoot] = plyFromRoot;
 
@@ -254,6 +266,7 @@ public class Search
             }
         }
 
+        // When the depths get to 0 or bellow (in case of reduction) we call the quiescence search
         if (depth <= 0)
         {
             return QuiescenceSearch(threadIndex, alpha, beta, plyFromRoot);
@@ -261,16 +274,13 @@ public class Search
 
         // Use the transposition table to see if the current position has already been reach
         int ttVal = tTable.LookupEvaluation(threadWorkerDatas[threadIndex].board, depth, plyFromRoot, alpha, beta);
-        if (ttVal != TranspositionTable.LookupFailed)
+        if (ttVal != TranspositionTable.LookupFailed && !isPvNode)
         {
             if (plyFromRoot == 0)
             {
                 threadWorkerDatas[threadIndex].bestMoveThisIteration = tTable.GetStoredMove(threadWorkerDatas[threadIndex].board);
-                threadWorkerDatas[threadIndex].bestEvalThisIteration = tTable.GetStoredScore(threadWorkerDatas[threadIndex].board);
-                //Debug.Log ("move retrieved " + bestMoveThisIteration.Name + " Node type: " + tt.entries[tt.Index].nodeType + " depth: " + tt.entries[tt.Index].depth);
+                threadWorkerDatas[threadIndex].bestEvalThisIteration = tTable.GetStoredScore(threadWorkerDatas[threadIndex].board);             
             }
-
-
 
             threadWorkerDatas[threadIndex].searchDiagnostics.tthit++;
             return ttVal;
@@ -310,13 +320,11 @@ public class Search
 
             }
         }
-        
-
 
         Span<Move> moves = stackalloc Move[MoveGenerator.MaxMoves];
         threadWorkerDatas[threadIndex].moveGenerator.GenerateMoves(threadWorkerDatas[threadIndex].board, ref moves, capturesOnly: false);
         Move prevBestMove = plyFromRoot == 0 ? threadWorkerDatas[threadIndex].bestMove : tTable.GetStoredMove(threadWorkerDatas[threadIndex].board);
-        threadWorkerDatas[threadIndex].moveOrdering.OrderMoves(prevBestMove, threadWorkerDatas[threadIndex].board, moves, threadWorkerDatas[threadIndex].moveGenerator.opponentAttackMap, threadWorkerDatas[threadIndex].moveGenerator.opponentPawnAttackMap, false, plyFromRoot);
+        threadWorkerDatas[threadIndex].moveOrdering.OrderMoves(prevBestMove, threadWorkerDatas[threadIndex].board, moves, threadWorkerDatas[threadIndex].moveGenerator.opponentAttackMap, threadWorkerDatas[threadIndex].moveGenerator.opponentPawnAttackMap, false, plyFromRoot, isRootNode, threadIndex);
         if (moves.Length == 0)
         {
             if (threadWorkerDatas[threadIndex].moveGenerator.InCheck())
@@ -338,26 +346,53 @@ public class Search
 
         int evalType = TranspositionTable.UpperBound;
         Move bestMoveInThisPosition = Move.NullMove;
-        bool isPvChild = isPvNode;
-        isPvNode = Move.SameMove(threadWorkerDatas[threadIndex].pvTable[0, plyFromRoot], moves[0]) && (isPvChild || plyFromRoot == 0);
+        int staticEval = 0;
 
+        // we only do the static evaluation of the position if depth == 1 && !isPvNode since we only use it for the futility move prunning at the moment 
+        if (depth == 1 && !isPvNode)
+        {
+            staticEval = threadWorkerDatas[threadIndex].evaluation.Evaluate(threadWorkerDatas[threadIndex].board, allowNNUE);
+        }
 
+        // loop through all the legal move
         for (int i = 0; i < moves.Length; i++)
         {
             int capturedPieceType = Piece.PieceType(threadWorkerDatas[threadIndex].board.Square[moves[i].TargetSquare]);
             bool isCapture = capturedPieceType != Piece.None;
-            int refreshValue = threadWorkerDatas[threadIndex].evaluation.nnue.TryUpdateAccumulators(moves[i], threadWorkerDatas[threadIndex].board, false);
-            threadWorkerDatas[threadIndex].board.MakeMove(moves[i], true);
-            if (refreshValue == 1)
+
+
+
+            
+            // Futility prunning : we evaluate position at depth = 1 and if the evaluation + a margin is worst than alpha, we assume that the position can be skipped
+            if (depth == 1 && !threadWorkerDatas[threadIndex].board.IsInCheck() && !isPvNode)
             {
-                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 0);
-            }
-            else if (refreshValue == 2)
-            {
-                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 1);
+                int futilMargin = futilityMargin;
+                threadWorkerDatas[threadIndex].searchDiagnostics.numPositionsEvaluated++;
+
+                if (isCapture)
+                {
+                    futilMargin += Evaluation.pieceValueArray[capturedPieceType];
+                }
+
+                if ((staticEval + futilMargin) <= alpha)
+                {
+                    threadWorkerDatas[threadIndex].searchDiagnostics.numCutOffs++;
+                    if (i == (moves.Length - 1))
+                    {
+                        if (plyFromRoot > 0)
+                        {
+                            threadWorkerDatas[threadIndex].repetitionTable.TryPop();
+                        }
+                        return alpha;
+                    }
+                    continue;
+                }
             }
 
-            // Move extension : search interesting board to a deeper depth
+            // make the move
+            MakeMove(threadIndex, moves[i]);
+
+            // Move extension : search interesting moves to a deeper depth
             int extension = 0;
             if (numExtensions < maxExtentions)
             {
@@ -373,20 +408,15 @@ public class Search
                 }
             }
 
+            // Non-PV Search
+            int eval = alpha - 1;
+            if (i > 0 || !isPvNode) 
+            { 
 
-            // PV Search
-            int eval;
-            if (i == 0 && isPvNode)
-            {
-                eval = -SearchMoves(threadIndex, depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, numExtensions + extension, moves[i], isCapture, isPvNode:true);
-                isPvNode = false;
-            }
-            else
-            {
                 // Late move reduction
                 int reduction = 0;
-                
-                if (depth >= 2 && !isCapture && i > 1)
+
+                if (depth >= 3 && i > 0 && !isPvNode)
                 {
                     if (depth <= 6)
                     {
@@ -398,23 +428,21 @@ public class Search
                     }
 
                 }
-                eval = -SearchMoves(threadIndex, depth - 1 - reduction, plyFromRoot + 1, -alpha - 1, -alpha, numExtensions, moves[i], isCapture);
-                if (eval > alpha)
+
+                eval = -SearchMoves(threadIndex, depth - 1 - reduction + extension, plyFromRoot + 1, -alpha - 1, -alpha, numExtensions + extension, moves[i], isCapture);
+                if (eval > alpha && eval < beta)
                 {
                     eval = -SearchMoves(threadIndex, depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, numExtensions + extension, moves[i], isCapture);
                 }
             }
 
-            threadWorkerDatas[threadIndex].board.UnmakeMove(moves[i], true);
-            refreshValue = threadWorkerDatas[threadIndex].evaluation.nnue.TryUpdateAccumulators(moves[i], threadWorkerDatas[threadIndex].board, true);
-            if (refreshValue == 1)
+            // PV Search
+            if (isPvNode && ( i == 0 || eval > alpha))
             {
-                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 0);
+                eval = -SearchMoves(threadIndex, depth - 1 + extension, plyFromRoot + 1, -beta, -alpha, numExtensions + extension, moves[i], isCapture, isPvNode: true);
             }
-            else if (refreshValue == 2)
-            {
-                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 1);
-            }
+
+            UnmakeMove(threadIndex, moves[i]);
 
             if (abortSearch)
             {
@@ -516,34 +544,17 @@ public class Search
         Span<Move> moves = stackalloc Move[128];
         int evalType = TranspositionTable.UpperBound;
         threadWorkerDatas[threadIndex].moveGenerator.GenerateMoves(threadWorkerDatas[threadIndex].board, ref moves, capturesOnly: true);
-        threadWorkerDatas[threadIndex].moveOrdering.OrderMoves(Move.NullMove, threadWorkerDatas[threadIndex].board, moves, threadWorkerDatas[threadIndex].moveGenerator.opponentAttackMap, threadWorkerDatas[threadIndex].moveGenerator.opponentPawnAttackMap, true, 0);
+        threadWorkerDatas[threadIndex].moveOrdering.OrderMoves(tTable.GetStoredMove(threadWorkerDatas[threadIndex].board), threadWorkerDatas[threadIndex].board, moves, threadWorkerDatas[threadIndex].moveGenerator.opponentAttackMap, threadWorkerDatas[threadIndex].moveGenerator.opponentPawnAttackMap, true, 0, false, threadIndex);
         for (int i = 0;i < moves.Length;i++)
         {
-            int refreshValue = threadWorkerDatas[threadIndex].evaluation.nnue.TryUpdateAccumulators(moves[i], threadWorkerDatas[threadIndex].board, false);
-            threadWorkerDatas[threadIndex].board.MakeMove(moves[i], true);
-            if (refreshValue == 1)
-            {
-                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 0);
-            }
-            else if (refreshValue == 2)
-            {
-                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 1);
-            }
+            MakeMove(threadIndex, moves[i]);
 
             eval = -QuiescenceSearch(threadIndex, -beta, -alpha, plyFromRoot + 1);
 
-            threadWorkerDatas[threadIndex].board.UnmakeMove(moves[i], true);
-            refreshValue = threadWorkerDatas[threadIndex].evaluation.nnue.TryUpdateAccumulators(moves[i], threadWorkerDatas[threadIndex].board, true);
-            if (refreshValue == 1)
-            {
-                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 0);
-            }
-            else if (refreshValue == 2)
-            {
-                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 1);
-            }
+            UnmakeMove(threadIndex, moves[i]);
 
             threadWorkerDatas[threadIndex].searchDiagnostics.numNodes++;
+            threadWorkerDatas[threadIndex].searchDiagnostics.numQNodes++;
 
             if (eval >= beta)
             {
@@ -591,6 +602,49 @@ public class Search
         }
     }
 
+    void MakeMove(int threadIndex, Move move)
+    {
+        if (allowNNUE)
+        {
+            int refreshValue = threadWorkerDatas[threadIndex].evaluation.nnue.TryUpdateAccumulators(move, threadWorkerDatas[threadIndex].board, false);
+            threadWorkerDatas[threadIndex].board.MakeMove(move, true);
+            if (refreshValue == 1)
+            {
+                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 0);
+            }
+            else if (refreshValue == 2)
+            {
+                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 1);
+            }
+        }
+        else
+        {
+            threadWorkerDatas[threadIndex].board.MakeMove(move, true);
+        }
+    }
+
+    void UnmakeMove(int threadIndex, Move move)
+    {
+        if (allowNNUE)
+        {
+            threadWorkerDatas[threadIndex].board.UnmakeMove(move, true);
+            int refreshValue = threadWorkerDatas[threadIndex].evaluation.nnue.TryUpdateAccumulators(move, threadWorkerDatas[threadIndex].board, true);
+            if (refreshValue == 1)
+            {
+                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 0);
+            }
+            else if (refreshValue == 2)
+            {
+                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 1);
+            }
+        }
+        else
+        {
+            threadWorkerDatas[threadIndex].board.UnmakeMove(move, true);
+        }
+
+    }
+
     void UpdateWorkersDatas()
     {
         for (int i = 0;i < threadWorkerDatas.Length; i++)
@@ -603,6 +657,16 @@ public class Search
             threadWorkerDatas[i].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[i].board, 0);
             threadWorkerDatas[i].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[i].board, 1);
         }
+    }
+
+    int GetTotalNodes()
+    {
+        int totalNodes = 0;
+        for (int i = 0; i < threadWorkerDatas.Length ; i++) 
+        {
+            totalNodes += threadWorkerDatas[i].searchDiagnostics.numNodes;
+        }
+        return totalNodes;
     }
 
     bool IsMainThread(int thread, int[] currentDepthList)
@@ -623,7 +687,7 @@ public class Search
         return threadWorkerDatas[thread].currentDepth > max;
     }
 
-    public class ThreadWorkerData
+    public struct ThreadWorkerData
     {
         public Board board;
         public RepetitionTable repetitionTable;
@@ -672,6 +736,7 @@ public class Search
         public int numCompletedIterations;
         public int numPositionsEvaluated;
         public int numNodes;
+        public int numQNodes;
         public int tthit;
         public ulong numCutOffs;
 

@@ -102,7 +102,7 @@ public class EngineUCI
                 string customFen = TryGetLabelledValue(message, "fen", positionLabels);
                 player.SetPosition(customFen);
             }
-			catch { Console.WriteLine("Invalid fen syntax")}
+			catch { Console.WriteLine("Invalid fen syntax"); }
 		}
 		else
 		{
