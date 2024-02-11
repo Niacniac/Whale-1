@@ -9,6 +9,8 @@
 	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	<EnablePreviewFeatures>true</EnablePreviewFeatures>
 	<GenerateRequiresPreviewFeaturesAttribute>true</GenerateRequiresPreviewFeaturesAttribute>
+	<Configurations>Debug;Release</Configurations>
+	<Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
