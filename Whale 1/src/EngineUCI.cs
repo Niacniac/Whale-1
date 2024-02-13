@@ -1,4 +1,6 @@
 ﻿
+using BenchmarkDotNet.Running;
+
 public class EngineUCI
 {
 	readonly Bot player;
@@ -37,6 +39,9 @@ public class EngineUCI
 			case "go":
 				ProcessGoCommand(message);
 				break;
+			case "test":
+				ProcessTestCommand(message);
+				break;
 			case "stop":
 				if (player.IsThinking)
 				{
@@ -60,6 +65,15 @@ public class EngineUCI
 		LogToFile("OnMoveChosen: book move = " + player.LatestMoveIsBookMove);
 		Respond("bestmove " + move);
 	}
+
+	void ProcessTestCommand(string message)
+	{
+		Test test = new Test();
+		test.GlobalSetup();
+		test.BenchmarkHalfKPappened();
+		test.BenchmarkHalfKPCreate();
+        var summary = BenchmarkRunner.Run<Test>();
+    }
 
 	void ProcessGoCommand(string message)
 	{

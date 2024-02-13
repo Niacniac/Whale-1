@@ -32,7 +32,7 @@ public class Search
     TranspositionTable tTable;
     int currentIterativeSearchDepth;
 
-    // Thread
+    // Thread (must be > 0)
     int threadNumber = 16;
     ThreadWorkerData[] threadWorkerDatas;
     // Diagnostics
@@ -244,6 +244,7 @@ public class Search
         }
 
         bool isRootNode = plyFromRoot == 0;
+        threadWorkerDatas[threadIndex].searchDiagnostics.numNodes++;
 
         // init PV length
         threadWorkerDatas[threadIndex].pvLength[plyFromRoot] = plyFromRoot;
@@ -448,7 +449,6 @@ public class Search
             {
                 return 0;
             }
-            threadWorkerDatas[threadIndex].searchDiagnostics.numNodes++;
 
             if (eval >= beta)
             {
@@ -520,6 +520,9 @@ public class Search
             return 0;
         }
 
+        threadWorkerDatas[threadIndex].searchDiagnostics.numNodes++;
+        threadWorkerDatas[threadIndex].searchDiagnostics.numQNodes++;
+
         // Use the transposition table to see if the current position has already been reach
         int ttVal = tTable.LookupEvaluation(threadWorkerDatas[threadIndex].board, 0, plyFromRoot, alpha, beta);
         if (ttVal != TranspositionTable.LookupFailed)
@@ -553,8 +556,6 @@ public class Search
 
             UnmakeMove(threadIndex, moves[i]);
 
-            threadWorkerDatas[threadIndex].searchDiagnostics.numNodes++;
-            threadWorkerDatas[threadIndex].searchDiagnostics.numQNodes++;
 
             if (eval >= beta)
             {
@@ -606,16 +607,8 @@ public class Search
     {
         if (allowNNUE)
         {
-            int refreshValue = threadWorkerDatas[threadIndex].evaluation.nnue.TryUpdateAccumulators(move, threadWorkerDatas[threadIndex].board, false);
+            threadWorkerDatas[threadIndex].evaluation.nnue.UpdateAppenedFeatures(move, threadWorkerDatas[threadIndex].board, false);
             threadWorkerDatas[threadIndex].board.MakeMove(move, true);
-            if (refreshValue == 1)
-            {
-                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 0);
-            }
-            else if (refreshValue == 2)
-            {
-                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 1);
-            }
         }
         else
         {
@@ -628,15 +621,7 @@ public class Search
         if (allowNNUE)
         {
             threadWorkerDatas[threadIndex].board.UnmakeMove(move, true);
-            int refreshValue = threadWorkerDatas[threadIndex].evaluation.nnue.TryUpdateAccumulators(move, threadWorkerDatas[threadIndex].board, true);
-            if (refreshValue == 1)
-            {
-                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 0);
-            }
-            else if (refreshValue == 2)
-            {
-                threadWorkerDatas[threadIndex].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[threadIndex].board, 1);
-            }
+            threadWorkerDatas[threadIndex].evaluation.nnue.UpdateAppenedFeatures(move, threadWorkerDatas[threadIndex].board, true);
         }
         else
         {
@@ -654,8 +639,7 @@ public class Search
             threadWorkerDatas[i].currentDepth = 0;
             threadWorkerDatas[i].searchDiagnostics = new SearchDiagnostics();
             threadWorkerDatas[i].searchIterationTimer = new Stopwatch();
-            threadWorkerDatas[i].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[i].board, 0);
-            threadWorkerDatas[i].evaluation.nnue.SetAccumulatorFromBoard(threadWorkerDatas[i].board, 1);
+            threadWorkerDatas[i].evaluation.nnue.TryUpdateAccumulators(threadWorkerDatas[i].board, true);
         }
     }
 
