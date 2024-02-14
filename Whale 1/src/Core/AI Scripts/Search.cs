@@ -1,6 +1,7 @@
 using static System.Math;
 using System.Diagnostics;
 using Whale_1.src.Core.AI_Scripts;
+using System.Runtime.InteropServices;
 
 
 public class Search
@@ -31,6 +32,7 @@ public class Search
     Board board;
     TranspositionTable tTable;
     int currentIterativeSearchDepth;
+    int[] reductions = new int[220];
 
     // Thread (must be > 0)
     int threadNumber = 16;
@@ -48,6 +50,7 @@ public class Search
         this.board = board;
         tTable = new TranspositionTable(transpositionTableSize);
         InitWorkersDatas(threadNumber);
+        InitTables(threadNumber);
         age = 0;
     }
     public void StartSearch()
@@ -119,12 +122,14 @@ public class Search
         int betaAspirationWindowsFailed = 0;
         int lastInBoundEval = 0;
         if (thread == 0) { age++; }
+
         for (int searchDepth = 1; searchDepth <= 220; searchDepth++)
         {
             threadWorkerDatas[thread].searchIterationTimer.Start();
             hasSearchedAtLeastOneMove = false;
             debugInfo += "\nStarting Iteration: " + searchDepth;
             currentIterationDepth = searchDepth;
+            threadWorkerDatas[thread].rootDelta = b - a;
 
             threadWorkerDatas[thread].lastIterationEval = SearchMoves(thread,searchDepth, 0, a, b, isPvNode:true);
             if (abortSearch)
@@ -419,15 +424,7 @@ public class Search
 
                 if (depth >= 3 && i > 0 && !isPvNode)
                 {
-                    if (depth <= 6)
-                    {
-                        reduction = 1;
-                    }
-                    else
-                    {
-                        reduction = depth / 3;
-                    }
-
+                    reduction = CalculateReduction(depth, i + 1, beta - alpha, threadWorkerDatas[threadIndex].rootDelta);
                 }
 
                 eval = -SearchMoves(threadIndex, depth - 1 - reduction + extension, plyFromRoot + 1, -alpha - 1, -alpha, numExtensions + extension, moves[i], isCapture);
@@ -603,6 +600,15 @@ public class Search
         }
     }
 
+    void InitTables(int workerNumber)
+    {
+        for (int i = 1; i < reductions.Length; ++i)
+        {
+            int value = (int)((20.37 + Math.Log(workerNumber) / 2) * Math.Log(i));
+            reductions[i] = value;
+        }
+    }
+
     void MakeMove(int threadIndex, Move move)
     {
         if (allowNNUE)
@@ -630,6 +636,12 @@ public class Search
 
     }
 
+    int CalculateReduction(int depth, int moveCount, int delta, int rootDelta)
+    {
+        int reductionScale = reductions[depth] * reductions[moveCount];
+        return (reductionScale + 1177 - delta * 776 / rootDelta) / 1024;
+    }
+
     void UpdateWorkersDatas()
     {
         for (int i = 0;i < threadWorkerDatas.Length; i++)
@@ -642,6 +654,7 @@ public class Search
             threadWorkerDatas[i].evaluation.nnue.TryUpdateAccumulators(threadWorkerDatas[i].board, true);
         }
     }
+
 
     int GetTotalNodes()
     {
@@ -685,6 +698,7 @@ public class Search
         public int bestEval;
         public Move bestMove;
         public int nmpMinPly;
+        public int rootDelta;
         public int[] pvLength;
         public Move[,] pvTable;
         public SearchDiagnostics searchDiagnostics;
@@ -706,6 +720,7 @@ public class Search
             bestEval = 0;
             bestMove = Move.NullMove;
             nmpMinPly = 0;
+            rootDelta = 0;
             pvLength = new int[272];
             pvTable = new Move[272, 272];
             searchDiagnostics = new SearchDiagnostics();
