@@ -358,6 +358,7 @@ public class Search
         if (depth == 1 && !isPvNode)
         {
             staticEval = threadWorkerDatas[threadIndex].evaluation.Evaluate(threadWorkerDatas[threadIndex].board, allowNNUE);
+            threadWorkerDatas[threadIndex].searchDiagnostics.numPositionsEvaluated++;
         }
 
         // loop through all the legal move
@@ -373,8 +374,7 @@ public class Search
             if (depth == 1 && !threadWorkerDatas[threadIndex].board.IsInCheck() && !isPvNode)
             {
                 int futilMargin = futilityMargin;
-                threadWorkerDatas[threadIndex].searchDiagnostics.numPositionsEvaluated++;
-
+                
                 if (isCapture)
                 {
                     futilMargin += Evaluation.pieceValueArray[capturedPieceType];
