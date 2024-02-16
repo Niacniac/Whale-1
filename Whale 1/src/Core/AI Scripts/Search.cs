@@ -2,13 +2,13 @@ using static System.Math;
 using System.Diagnostics;
 using Whale_1.src.Core.AI_Scripts;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics.X86;
 
 
 public class Search
 {
     // Constants
-    const int maxThreads = 32;
-    const int transpositionTableSize = 4000;
+    const int maxThreads = 128;
     const int maxExtentions = 16;
     const double aspirationWindowExponent = 3.5d;
     const int aspirationWindowBase = 15;
@@ -20,37 +20,53 @@ public class Search
     const int minNullMoveR = 4;
     const int nullMoveDepthReduction = 4;
     const int futilityMargin = 350; // value of a piece
-    const bool allowNNUE = true;
     public event Action<Move>? OnSearchComplete;
 
     bool hasSearchedAtLeastOneMove;
     bool abortSearch;
 
-    uint age;
-
     // References
     Board board;
     TranspositionTable tTable;
     int currentIterativeSearchDepth;
+    uint age;
     int[] reductions = new int[220];
-
-    // Thread (must be > 0)
-    int threadNumber = 16;
     ThreadWorkerData[] threadWorkerDatas;
+
+    // Options
+    private int _threadNumber = 1;
+    private ulong _transpositionTableSize = 16;
+    private bool _allowNNUE = Avx2.IsSupported;
+
+    public int ThreadNumber
+    {
+        get { return _threadNumber; }
+        set { _threadNumber = Math.Clamp(value, 1, maxThreads); }
+    }
+    public ulong TranspositionTableSize
+    {
+        get { return _transpositionTableSize; }
+        set { _transpositionTableSize = Math.Clamp(value, 16, 32000); }
+    }
+    public bool AllowNNUE
+    {
+        get { return _allowNNUE; }
+        set { _allowNNUE = Avx2.IsSupported && value; }
+    }
+
+
     // Diagnostics
     int currentIterationDepth;
     Stopwatch searchTotalTimer;
     public string debugInfo;
     
 
-
-
     public Search(Board board)
     {
         this.board = board;
-        tTable = new TranspositionTable(transpositionTableSize);
-        InitWorkersDatas(threadNumber);
-        InitTables(threadNumber);
+        tTable = new TranspositionTable(TranspositionTableSize);
+        InitWorkersDatas(ThreadNumber);
+        InitTables(ThreadNumber);
         age = 0;
     }
     public void StartSearch()
@@ -90,7 +106,7 @@ public class Search
         List<Task> tasks = new List<Task>();
 
 
-        for (int i = 1; i < threadNumber; i++)
+        for (int i = 1; i < ThreadNumber; i++)
         {
             int threadIndex = i;
             Task task = Task.Factory.StartNew(() => RunIterativeDeepeningSearch(threadIndex), TaskCreationOptions.LongRunning);
@@ -357,7 +373,7 @@ public class Search
         // we only do the static evaluation of the position if depth == 1 && !isPvNode since we only use it for the futility move prunning at the moment 
         if (depth == 1 && !isPvNode)
         {
-            staticEval = threadWorkerDatas[threadIndex].evaluation.Evaluate(threadWorkerDatas[threadIndex].board, allowNNUE);
+            staticEval = threadWorkerDatas[threadIndex].evaluation.Evaluate(threadWorkerDatas[threadIndex].board, AllowNNUE);
             threadWorkerDatas[threadIndex].searchDiagnostics.numPositionsEvaluated++;
         }
 
@@ -529,7 +545,7 @@ public class Search
         }
 
 
-        int eval = threadWorkerDatas[threadIndex].evaluation.Evaluate(threadWorkerDatas[threadIndex].board, allowNNUE);
+        int eval = threadWorkerDatas[threadIndex].evaluation.Evaluate(threadWorkerDatas[threadIndex].board, AllowNNUE);
         threadWorkerDatas[threadIndex].searchDiagnostics.numPositionsEvaluated++;
         if (eval >= beta)
         {
@@ -589,6 +605,11 @@ public class Search
         age = 0;
     }
 
+    public void ResizeTranspositionTable(ulong sizeMB)
+    {
+        tTable.Resize(sizeMB);
+    }
+
     void InitWorkersDatas(int workerNumber)
     {
         int workers = Min(workerNumber, maxThreads);
@@ -611,7 +632,7 @@ public class Search
 
     void MakeMove(int threadIndex, Move move)
     {
-        if (allowNNUE)
+        if (AllowNNUE)
         {
             threadWorkerDatas[threadIndex].evaluation.nnue.UpdateAppenedFeatures(move, threadWorkerDatas[threadIndex].board, false);
             threadWorkerDatas[threadIndex].board.MakeMove(move, true);
@@ -624,7 +645,7 @@ public class Search
 
     void UnmakeMove(int threadIndex, Move move)
     {
-        if (allowNNUE)
+        if (AllowNNUE)
         {
             threadWorkerDatas[threadIndex].board.UnmakeMove(move, true);
             threadWorkerDatas[threadIndex].evaluation.nnue.UpdateAppenedFeatures(move, threadWorkerDatas[threadIndex].board, true);

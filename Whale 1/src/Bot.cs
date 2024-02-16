@@ -48,6 +48,22 @@ public class Bot
         board.LoadPosition(fen);
     }
 
+    public void SetOption(int optionNum, int value)
+    {
+        switch (optionNum)
+        {
+            case 0:
+                searcher.ResizeTranspositionTable((ulong)value);
+                searcher.TranspositionTableSize = (uint)value;
+                break;
+            case 1:
+                searcher.ThreadNumber = value;
+                break;
+            case 2:
+                searcher.AllowNNUE = Convert.ToBoolean(value);
+                break;
+        }
+    }
     public void MakeMove(string moveString)
     {
         Move move = MoveUtility.GetMoveFromUCIName(moveString, board);

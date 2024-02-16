@@ -11,6 +11,7 @@ namespace Whale_1.src.Core.AI_Scripts
     {
         // Constants
         public const string netDirectory = "Whale_1.resources.nn-62ef826d1a6d.nnue";
+     
         // Register size of AVX2
         public const int Register_SIZE = 256;
         // Register width for int16
@@ -50,6 +51,9 @@ namespace Whale_1.src.Core.AI_Scripts
 
         // Output layer
         static readonly LinearLayer OutputLayer = new(32, 1);
+
+        // Check if the processor support AvxVNNI
+        static private readonly bool allowAVXVNNI = AvxVnni.IsSupported;
 
         // Used to looad the Network only once
         static private bool isNetLoaded = false;
@@ -375,10 +379,10 @@ namespace Whale_1.src.Core.AI_Scripts
                     {
                         Vector256<sbyte> IN = Avx.LoadVector256(currentAddress);
 
-                        sum0 = AvxVnni.MultiplyWideningAndAdd(sum0, IN.AsByte(), Avx.LoadVector256(pointer0));
-                        sum1 = AvxVnni.MultiplyWideningAndAdd(sum1, IN.AsByte(), Avx.LoadVector256(pointer1));
-                        sum2 = AvxVnni.MultiplyWideningAndAdd(sum2, IN.AsByte(), Avx.LoadVector256(pointer2));
-                        sum3 = AvxVnni.MultiplyWideningAndAdd(sum3, IN.AsByte(), Avx.LoadVector256(pointer3));
+                        sum0 = MultiplyWideningAndAdd(sum0, IN.AsByte(), Avx.LoadVector256(pointer0));
+                        sum1 = MultiplyWideningAndAdd(sum1, IN.AsByte(), Avx.LoadVector256(pointer1));
+                        sum2 = MultiplyWideningAndAdd(sum2, IN.AsByte(), Avx.LoadVector256(pointer2));
+                        sum3 = MultiplyWideningAndAdd(sum3, IN.AsByte(), Avx.LoadVector256(pointer3));
 
                     }
                 }
@@ -420,7 +424,7 @@ namespace Whale_1.src.Core.AI_Scripts
                 fixed (sbyte* Pointer_0 = &input[i * REGISTER_WIDTH], Pointer_1 = &outputLayer.weight[i * REGISTER_WIDTH])
                 {
                     Vector256<sbyte> IN = Avx2.LoadVector256(Pointer_0);
-                    sum = AvxVnni.MultiplyWideningAndAdd(sum, IN.AsByte(), Avx2.LoadVector256(Pointer_1)); 
+                    sum = MultiplyWideningAndAdd(sum, IN.AsByte(), Avx2.LoadVector256(Pointer_1)); 
                 }
 
                 fixed (int* currentAddress = &intermediateArray[0])
@@ -437,6 +441,23 @@ namespace Whale_1.src.Core.AI_Scripts
             return outputValue + outputLayer.bias[0];
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static unsafe Vector256<int> MultiplyWideningAndAdd(Vector256<int> addend, Vector256<byte> left, Vector256<sbyte> right)
+        {
+            if (allowAVXVNNI)
+            {
+                return AvxVnni.MultiplyWideningAndAdd(addend, left, right);
+            }
+
+            Vector256<short> product0 = Avx2.MultiplyAddAdjacent(left, right);
+
+            Vector256<short> one = Vector256<short>.One;
+
+            Vector256<int> product1 = Avx2.MultiplyAddAdjacent(product0, one);
+
+            return Avx2.Add(addend, product1);
+        }
+        
         public static class HalfKP
         {
             // Append the added and removed feature after a move. There's two list of each 0 white, 1 black
