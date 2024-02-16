@@ -21,7 +21,7 @@ public class TranspositionTable
     public Entry[] entries;
 
     public ulong entriesNum;
-    public readonly ulong count;
+    public ulong count;
     public bool enabled = true;
 
     public TranspositionTable(ulong sizeMB)
@@ -45,15 +45,17 @@ public class TranspositionTable
         entriesNum = 0;
     }
 
-    /*
-    public ulong Index
+    public void Resize(ulong sizeMB)
     {
-        get
-        {
-            return board.ZobristKey % count;
-        }
+        ulong ttEntrySizeBytes = (ulong)System.Runtime.InteropServices.Marshal.SizeOf<TranspositionTable.Entry>();
+        ulong desiredTableSizeInBytes = sizeMB * 1024 * 1024;
+        ulong numEntries = desiredTableSizeInBytes / ttEntrySizeBytes;
+
+        count = numEntries;
+        entries = new Entry[numEntries];
+        entriesNum = 0;
     }
-    */
+
     public ulong Index(Board board)
     {
         return board.ZobristKey % count;
@@ -81,9 +83,6 @@ public class TranspositionTable
 
         return int.MinValue;
     }
-
-
-
 
     public bool TryLookupEvaluation(int depth, int plyFromRoot, int alpha, int beta, out int eval)
     {
@@ -225,12 +224,6 @@ public class TranspositionTable
             */
             this.age = age;
 
-        }
-
-
-        public static int GetSize()
-        {
-            return System.Runtime.InteropServices.Marshal.SizeOf<Entry>();
         }
 
         public static ulong GetData(int value, Move move, byte depth, byte nodeType)

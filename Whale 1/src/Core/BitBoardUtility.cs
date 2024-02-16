@@ -1,4 +1,7 @@
 ﻿
+using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics.X86;
+
 public static class BitBoardUtility
 {
     public const ulong FileA = 0x101010101010101;
@@ -35,11 +38,18 @@ public static class BitBoardUtility
     public static readonly ulong[] BlackPawnAttacks;
 
     // Get index of least significant set bit in given 64bit value. Also clears the bit to zero.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int PopLSB(ref ulong b)
     {
-        int i = deBruijnTable[((ulong)((long)b & -(long)b) * deBruijn64) >> 58];
-        b = b & (b - 1);
-        return i;
+        if (Bmi2.X64.IsSupported)
+        {
+            int i = (int)Bmi1.X64.TrailingZeroCount(b);
+            b = Bmi1.X64.ResetLowestSetBit(b);
+            return i;
+        }
+        int j = deBruijnTable[((ulong)((long)b & -(long)b) * deBruijn64) >> 58];
+        b &= (b - 1);
+        return j;
     }
     public static ulong[] GetIndividualBitBoard(ulong bitBoard) 
     {

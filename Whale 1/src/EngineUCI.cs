@@ -1,4 +1,8 @@
 ﻿
+using BenchmarkDotNet.Running;
+using Microsoft.Diagnostics.Tracing.Parsers.FrameworkEventSource;
+using Whale_1.src.Core.AI_Scripts;
+
 public class EngineUCI
 {
 	readonly Bot player;
@@ -37,6 +41,12 @@ public class EngineUCI
 			case "go":
 				ProcessGoCommand(message);
 				break;
+			case "setoption":
+				ProcessOptionCommand(message);
+				break;
+			case "test":
+				ProcessTestCommand(message);
+				break;
 			case "stop":
 				if (player.IsThinking)
 				{
@@ -59,6 +69,50 @@ public class EngineUCI
 	{
 		LogToFile("OnMoveChosen: book move = " + player.LatestMoveIsBookMove);
 		Respond("bestmove " + move);
+	}
+
+	void ProcessTestCommand(string message)
+	{
+		Test test = new Test();
+		test.GlobalSetup();
+		test.BenchmarkHalfKPappened();
+		test.BenchmarkHalfKPCreate();
+        var summary = BenchmarkRunner.Run<Test>();
+    }
+
+	void ProcessOptionCommand(string message)
+	{
+		if (!message.Split(' ')[1].Equals("name", StringComparison.CurrentCultureIgnoreCase))
+		{
+			Respond("Invalid syntax");
+			Respond("syntax should be : setoption name <id> [value <x>]");
+			return;
+		}
+
+		string messageID = message.Split(' ')[2].ToLower();
+		string messageValue = message.Split(' ')[3].ToLower();
+
+        switch (messageID)
+		{
+			case "hash":
+				player.SetOption(0, int.Parse(messageValue));
+				break;
+			case "threads":
+                player.SetOption(1, int.Parse(messageValue));
+                break;
+			case "use":
+                if (message.Split(' ')[3].Equals("nnue", StringComparison.CurrentCultureIgnoreCase))
+				{
+                    messageValue = message.Split(' ')[4].ToLower();
+					bool messageValuebool = bool.Parse(messageValue);
+					player.SetOption(2, Convert.ToInt32(messageValuebool));
+                }
+                break;
+			default:
+				Respond("Invalid option name");
+				Respond("type 'uci' to show the available options");
+				break;
+		}
 	}
 
 	void ProcessGoCommand(string message)
@@ -132,8 +186,11 @@ public class EngineUCI
 	{
 		Respond("id name Whale 7");
 		Respond("id author Niacniac");
-		Respond("uciok");
-		
+		Console.WriteLine();
+		Respond("option name Threads type spin default 1 min 1 max 128");
+		Respond("option name Hash type spin default 16 min 1 max 32000");
+		Respond("option name Use NNUE type check default true");
+		Respond("uciok");	
 	}
 
 	static int TryGetLabelledValueInt(string text, string label, string[] allLabels, int defaultValue = 0)
