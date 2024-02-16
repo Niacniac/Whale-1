@@ -58,6 +58,7 @@ public class Bot
                 break;
             case 1:
                 searcher.ThreadNumber = value;
+                searcher.InitWorkersDatas();
                 break;
             case 2:
                 searcher.AllowNNUE = Convert.ToBoolean(value);

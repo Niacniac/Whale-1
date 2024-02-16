@@ -65,7 +65,7 @@ public class Search
     {
         this.board = board;
         tTable = new TranspositionTable(TranspositionTableSize);
-        InitWorkersDatas(ThreadNumber);
+        InitWorkersDatas();
         InitTables(ThreadNumber);
         age = 0;
     }
@@ -610,9 +610,9 @@ public class Search
         tTable.Resize(sizeMB);
     }
 
-    void InitWorkersDatas(int workerNumber)
+    public void InitWorkersDatas()
     {
-        int workers = Min(workerNumber, maxThreads);
+        int workers = ThreadNumber;
         threadWorkerDatas = new ThreadWorkerData[workers];
 
         for (int i = 0; i < workers; i++)
