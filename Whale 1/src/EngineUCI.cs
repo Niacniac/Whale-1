@@ -95,15 +95,24 @@ public class EngineUCI
         switch (messageID)
 		{
 			case "hash":
-				player.SetOption(0, int.Parse(messageValue));
-				break;
-			case "threads":
-                player.SetOption(1, int.Parse(messageValue));
-                break;
-			case "use":
-                if (message.Split(' ')[3].Equals("nnue", StringComparison.CurrentCultureIgnoreCase))
+				if (message.Split(' ')[3].Equals("value", StringComparison.CurrentCultureIgnoreCase))
 				{
                     messageValue = message.Split(' ')[4].ToLower();
+                    player.SetOption(0, int.Parse(messageValue));
+                }
+				break;
+			case "threads":
+				if (message.Split(' ')[3].Equals("value", StringComparison.CurrentCultureIgnoreCase))
+				{
+                    messageValue = message.Split(' ')[4].ToLower();
+                    player.SetOption(1, int.Parse(messageValue));
+                }            
+                break;
+			case "use":
+                if (message.Split(' ')[3].Equals("nnue", StringComparison.CurrentCultureIgnoreCase)
+					&& message.Split(' ')[4].Equals("value", StringComparison.CurrentCultureIgnoreCase))
+				{
+                    messageValue = message.Split(' ')[5].ToLower();
 					bool messageValuebool = bool.Parse(messageValue);
 					player.SetOption(2, Convert.ToInt32(messageValuebool));
                 }
