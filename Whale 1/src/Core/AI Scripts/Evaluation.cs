@@ -54,11 +54,11 @@ public class Evaluation
         if (useNNUE)
         {
             nnue.TryUpdateAccumulators(board, false);
-            int value = nnue.EvaluateNNUE(board.MoveColourIndex);
+            int value = nnue.EvaluateNNUE(board.MoveColourIndex) * 5 / 4 + 28;
 
-            value *= (1 - (board.CurrentGameState.fiftyMoveCounter / 100)); // take into account the fifty move rule 
+            value = value * (100 - board.CurrentGameState.fiftyMoveCounter) / 100; // take into account the fifty move rule 
 
-            return value;
+            return value / 2;
         }
 
         whiteEval = new EvaluationData();

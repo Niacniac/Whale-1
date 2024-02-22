@@ -201,7 +201,7 @@ namespace Whale_1.src.Core.AI_Scripts
             RefreshAccumulator(transformer, acc, features[color], color);
         }
 
-        unsafe void RefreshAccumulator(FeatureTransformer transformer, Accumulator acc, List<int> activeFeatures, int perspective)
+        static unsafe void RefreshAccumulator(FeatureTransformer transformer, Accumulator acc, List<int> activeFeatures, int perspective)
         {
             // Size of the Feature Transformer  : Output size divided by the register width
             const int NUM_CHUNKS = 256 / REGISTER_WIDTH;
@@ -240,7 +240,7 @@ namespace Whale_1.src.Core.AI_Scripts
             }
         }
 
-        unsafe void UpdateAccumulator(FeatureTransformer transformer, Accumulator accToUpdate, List<int>[] addedFeatures, List<int>[] removedFeatures, int perspective)
+        static unsafe void UpdateAccumulator(FeatureTransformer transformer, Accumulator accToUpdate, List<int>[] addedFeatures, List<int>[] removedFeatures, int perspective)
         {
             // Size of the Feature Transformer  : Output size divided by the register width
             const int NUM_CHUNKS = 256 / REGISTER_WIDTH;
@@ -294,7 +294,7 @@ namespace Whale_1.src.Core.AI_Scripts
         } 
 
         // ClippedReLU from the output of the accumulutor in int16 
-        unsafe void Crelu16(int size, sbyte[] output, short[] input)
+        static unsafe void Crelu16(int size, sbyte[] output, short[] input)
         {
             const int IN_REGISTER_WIDTH = 256 / 16;
             const int OUT_REGISTER_WIDTH = 256 / 8;
@@ -325,7 +325,7 @@ namespace Whale_1.src.Core.AI_Scripts
             }
         }
 
-        unsafe void Crelu32(int size, sbyte[] output, int[] input)
+        static unsafe void Crelu32(int size, sbyte[] output, int[] input)
         {
             const int IN_REGISTER_WIDTH = 256 / 32;
             const int OUT_REGISTER_WIDTH = 256 / 8;
@@ -354,7 +354,7 @@ namespace Whale_1.src.Core.AI_Scripts
             }
         }
 
-        unsafe void DenseLinear(LinearLayer layer, int[] output, sbyte[] input)
+        static unsafe void DenseLinear(LinearLayer layer, int[] output, sbyte[] input)
         {
             const int REGISTER_WIDTH = 256 / 8;
             int numInChunks = layer.Input_size / REGISTER_WIDTH;
@@ -410,7 +410,7 @@ namespace Whale_1.src.Core.AI_Scripts
             }
         }
 
-        unsafe int LinearOutput(LinearLayer outputLayer, sbyte[] input)
+        static unsafe int LinearOutput(LinearLayer outputLayer, sbyte[] input)
         {
             const int REGISTER_WIDTH = 256 / 8;
             int numInChunks = outputLayer.Input_size / REGISTER_WIDTH;
@@ -441,7 +441,7 @@ namespace Whale_1.src.Core.AI_Scripts
             return outputValue + outputLayer.bias[0];
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+
         static unsafe Vector256<int> MultiplyWideningAndAdd(Vector256<int> addend, Vector256<byte> left, Vector256<sbyte> right)
         {
             if (allowAVXVNNI)
