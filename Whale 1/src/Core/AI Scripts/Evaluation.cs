@@ -58,7 +58,7 @@ public class Evaluation
 
             value = value * (100 - board.CurrentGameState.fiftyMoveCounter) / 100; // take into account the fifty move rule 
 
-            return value / 2;
+            return value;
         }
 
         whiteEval = new EvaluationData();

@@ -225,7 +225,7 @@ public class Search
                         nps = 0f;
                     }
                     int nodesPerSecond = Convert.ToInt32(nps);
-                    Console.WriteLine($"info depth {threadWorkerDatas[thread].currentDepth} score cp {threadWorkerDatas[thread].bestEval} nodes {totalNodes} nps {nodesPerSecond} hashfull {Convert.ToInt32(perMillTTfull)} time {totalElapsedTime.Milliseconds + totalElapsedTime.Seconds * 1000 + totalElapsedTime.Minutes * 60 * 1000} pv {pvLineName}");
+                    Console.WriteLine($"info depth {threadWorkerDatas[thread].currentDepth} score cp {threadWorkerDatas[thread].bestEval / 2} nodes {totalNodes} nps {nodesPerSecond} hashfull {Convert.ToInt32(perMillTTfull)} time {totalElapsedTime.Milliseconds + totalElapsedTime.Seconds * 1000 + totalElapsedTime.Minutes * 60 * 1000} pv {pvLineName}");
                     // Update diagnostics
                     debugInfo += "\nIteration result: " + MoveUtility.GetMoveNameUCI(threadWorkerDatas[thread].bestMove) + " Eval: " + threadWorkerDatas[thread].bestEval;
                     if (IsMateScore(threadWorkerDatas[thread].bestEval))
