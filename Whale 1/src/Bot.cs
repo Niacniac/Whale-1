@@ -63,6 +63,9 @@ public class Bot
             case 2:
                 searcher.AllowNNUE = Convert.ToBoolean(value);
                 break;
+            case 3:
+                searcher.futilityMargin = value;
+                break;
         }
     }
     public void MakeMove(string moveString)
@@ -76,7 +79,7 @@ public class Bot
         int myTimeRemainingMs = board.IsWhiteToMove ? timeRemainingWhiteMs : timeRemainingBlackMs;
         int myIncrementMs = board.IsWhiteToMove ? incrementWhiteMs : incrementBlackMs;
         // Get a fraction of remaining time to use for current move
-        double thinkTimeMs = myTimeRemainingMs / 40.0;
+        double thinkTimeMs = myTimeRemainingMs / 65.0;
         // Clamp think time if a maximum limit is imposed
         if (useMaxThinkTime)
         {
@@ -85,7 +88,7 @@ public class Bot
         // Add increment
         if (myTimeRemainingMs > myIncrementMs * 2)
         {
-            thinkTimeMs += myIncrementMs * 0.8;
+            thinkTimeMs += myIncrementMs * 0.9;
         }
 
         double minThinkTime = Min(50, myTimeRemainingMs * 0.25);
@@ -168,6 +171,8 @@ public class Bot
     void OnSearchComplete(Move move)
     {
         IsThinking = false;
+
+        cancelSearchTimer?.Cancel();
 
         string moveName = MoveUtility.GetMoveNameUCI(move).Replace("=", "");
 

@@ -1,12 +1,13 @@
 ﻿
 using BenchmarkDotNet.Running;
 using Microsoft.Diagnostics.Tracing.Parsers.FrameworkEventSource;
+using System.Reflection;
 using Whale_1.src.Core.AI_Scripts;
 
 public class EngineUCI
 {
 	readonly Bot player;
-	static readonly bool logToFile = false;
+	static readonly bool logToFile = true;
 
 	static readonly string[] positionLabels = new[] { "position", "fen", "moves" };
 	static readonly string[] goLabels = new[] { "go", "movetime", "wtime", "btime", "winc", "binc", "movestogo" };
@@ -19,7 +20,6 @@ public class EngineUCI
 
 	public void ReceiveCommand(string message)
 	{
-		//Console.WriteLine(message);
 		LogToFile("Command received: " + message);
 		message = message.Trim();
 		string messageType = message.Split(' ')[0].ToLower();
@@ -30,7 +30,11 @@ public class EngineUCI
 				RespondUCI();
 				break;
 			case "isready":
-				Respond("readyok");
+                if (player.IsThinking)
+                {
+                    player.StopThinking();
+                }
+                Respond("readyok");
 				break;
 			case "ucinewgame":
 				player.NotifyNewGame();
@@ -117,6 +121,20 @@ public class EngineUCI
 					player.SetOption(2, Convert.ToInt32(messageValuebool));
                 }
                 break;
+			case "p1":
+                if (message.Split(' ')[3].Equals("value", StringComparison.CurrentCultureIgnoreCase))
+				{
+                    messageValue = message.Split(' ')[4].ToLower();
+                    player.SetOption(3, int.Parse(messageValue));
+                }
+				break;
+			case "p2":
+                if (message.Split(' ')[3].Equals("value", StringComparison.CurrentCultureIgnoreCase))
+                {
+                    messageValue = message.Split(' ')[4].ToLower();
+                    player.SetOption(4, int.Parse(messageValue));
+                }
+                break;
 			default:
 				Respond("Invalid option name");
 				Respond("type 'uci' to show the available options");
@@ -126,6 +144,7 @@ public class EngineUCI
 
 	void ProcessGoCommand(string message)
 	{
+
 		if (message.Contains("movetime"))
 		{
 			int moveTimeMs = TryGetLabelledValueInt(message, "movetime", goLabels, 0);
@@ -241,7 +260,7 @@ public class EngineUCI
 		if (logToFile)
 		{
 			Directory.CreateDirectory(AppDataPath);
-			string path = Path.Combine(AppDataPath, "UCI_Log.txt");
+			string path = Path.Combine(AppDataPath, "UCI_Logd.txt");
 
 			using (StreamWriter writer = new StreamWriter(path, true))
 			{
@@ -254,8 +273,10 @@ public class EngineUCI
 	{
 		get
 		{
-			string dir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-			return Path.Combine(dir, "Chess-Coding-Adventure");
+            string dir = "C:\\Users\\lione\\OneDrive\\Bureau\\Chess\\Parameter Tunning";
+			//string dir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+			//return Path.Combine(dir, "Chess-Coding-Adventure");
+			return dir;
 		}
 	}
 

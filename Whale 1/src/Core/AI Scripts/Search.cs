@@ -19,7 +19,6 @@ public class Search
     const int maxNullMoveR = 4;
     const int minNullMoveR = 4;
     const int nullMoveDepthReduction = 4;
-    const int futilityMargin = 350; // value of a piece
     public event Action<Move>? OnSearchComplete;
 
     bool hasSearchedAtLeastOneMove;
@@ -37,7 +36,13 @@ public class Search
     private int _threadNumber = 1;
     private ulong _transpositionTableSize = 16;
     private bool _allowNNUE = Avx2.IsSupported;
+    private int _futilityMargin = 350;
 
+    public int futilityMargin
+    {
+        get { return _futilityMargin; }
+        set { _futilityMargin = value; }
+    }
     public int ThreadNumber
     {
         get { return _threadNumber; }
@@ -92,10 +97,23 @@ public class Search
 
         Move m = threadWorkerDatas[0].bestMove;
 
+        // if there is no best move we check the other threads
+        for (int i = 1;i < threadWorkerDatas.Length; i++)
+        {
+            if (!m.IsNull)
+            {
+                break;
+            }
+
+            m = threadWorkerDatas[i].bestMove;
+        }
+ 
+        // if there's still no move we generate a random move
         if (m.IsNull)
         {
             m = threadWorkerDatas[0].moveGenerator.GenerateMoves(board)[0];
         }
+
         OnSearchComplete?.Invoke(m);
         abortSearch = false;
     }
@@ -301,7 +319,7 @@ public class Search
             if (plyFromRoot == 0)
             {
                 threadWorkerDatas[threadIndex].bestMoveThisIteration = tTable.GetStoredMove(threadWorkerDatas[threadIndex].board);
-                threadWorkerDatas[threadIndex].bestEvalThisIteration = tTable.GetStoredScore(threadWorkerDatas[threadIndex].board);             
+                threadWorkerDatas[threadIndex].bestEvalThisIteration = tTable.GetStoredScore(threadWorkerDatas[threadIndex].board);
             }
 
             threadWorkerDatas[threadIndex].searchDiagnostics.tthit++;
