@@ -170,9 +170,9 @@ public class Bot
 
     void OnSearchComplete(Move move)
     {
-        IsThinking = false;
-
         cancelSearchTimer?.Cancel();
+
+        IsThinking = false;
 
         string moveName = MoveUtility.GetMoveNameUCI(move).Replace("=", "");
 

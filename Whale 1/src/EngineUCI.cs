@@ -7,7 +7,7 @@ using Whale_1.src.Core.AI_Scripts;
 public class EngineUCI
 {
 	readonly Bot player;
-	static readonly bool logToFile = true;
+	static readonly bool logToFile = false;
 
 	static readonly string[] positionLabels = new[] { "position", "fen", "moves" };
 	static readonly string[] goLabels = new[] { "go", "movetime", "wtime", "btime", "winc", "binc", "movestogo" };
