@@ -28,7 +28,6 @@ public class Search
     Board board;
     TranspositionTable tTable;
     int currentIterativeSearchDepth;
-    uint age;
     int[] reductions = new int[220];
     ThreadWorkerData[] threadWorkerDatas;
 
@@ -72,7 +71,6 @@ public class Search
         tTable = new TranspositionTable(TranspositionTableSize);
         InitWorkersDatas();
         InitTables(ThreadNumber);
-        age = 0;
     }
     public void StartSearch()
     {
@@ -155,7 +153,6 @@ public class Search
         int alphaAspirationWindowsFailed = 0;
         int betaAspirationWindowsFailed = 0;
         int lastInBoundEval = 0;
-        if (thread == 0) { age++; }
 
         for (int searchDepth = 1; searchDepth <= 220; searchDepth++)
         {
@@ -483,7 +480,7 @@ public class Search
 
             if (eval >= beta)
             {
-                tTable.StoreEvaluation(threadWorkerDatas[threadIndex].board, depth, plyFromRoot, beta, TranspositionTable.LowerBound, moves[i], age);
+                tTable.StoreEvaluation(threadWorkerDatas[threadIndex].board, depth, plyFromRoot, beta, TranspositionTable.LowerBound, moves[i]);
 
                 // Update killer moves and history heuristic (note: don't include captures as theres are ranked highly anyway)
                 if (!isCapture)
@@ -538,7 +535,7 @@ public class Search
         }
 
 
-        tTable.StoreEvaluation(threadWorkerDatas[threadIndex].board, depth, plyFromRoot, alpha, evalType, bestMoveInThisPosition, age);
+        tTable.StoreEvaluation(threadWorkerDatas[threadIndex].board, depth, plyFromRoot, alpha, evalType, bestMoveInThisPosition);
 
         return alpha;
     }
@@ -590,17 +587,17 @@ public class Search
 
             if (eval >= beta)
             {
-                tTable.StoreEvaluation(threadWorkerDatas[threadIndex].board,0, plyFromRoot, beta, TranspositionTable.LowerBound, moves[i], age);
+                tTable.StoreEvaluation(threadWorkerDatas[threadIndex].board,0, plyFromRoot, beta, TranspositionTable.LowerBound, moves[i]);
                 threadWorkerDatas[threadIndex].searchDiagnostics.numCutOffs++;
                 return beta;
-            }
+            }   
             if (eval > alpha)
             {
                 evalType = TranspositionTable.Exact;
                 alpha = eval;
             }
         }
-        tTable.StoreEvaluation(threadWorkerDatas[threadIndex].board, 0, plyFromRoot, alpha, evalType, Move.NullMove, age);
+        tTable.StoreEvaluation(threadWorkerDatas[threadIndex].board, 0, plyFromRoot, alpha, evalType, Move.NullMove);
 
         return alpha;
     }
@@ -620,7 +617,6 @@ public class Search
             threadWorkerDatas[i].moveOrdering.ClearKillers();
         }
 
-        age = 0;
     }
 
     public void ResizeTranspositionTable(ulong sizeMB)

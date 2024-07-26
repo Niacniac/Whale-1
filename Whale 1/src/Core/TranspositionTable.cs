@@ -130,7 +130,7 @@ public class TranspositionTable
         return LookupFailed;
     }
 
-    public void StoreEvaluation(Board board, int depth, int numPlySearched, int eval, int evalType, Move move, uint age)
+    public void StoreEvaluation(Board board, int depth, int numPlySearched, int eval, int evalType, Move move)
     {
         if (!enabled)
         {
@@ -138,16 +138,15 @@ public class TranspositionTable
         }
         byte entryDepth = Entry.RecoverDepth(entries[Index(board)].SMP_data);
 
-        if (depth >= entryDepth || age > entries[Index(board)].age)  {
-
+        if (depth >= entryDepth)  
+        {
             ulong smp_data = Entry.GetData(CorrectMateScoreForStorage(eval, numPlySearched), move, (byte)depth, (byte)evalType);
             ulong smp_key = board.ZobristKey ^ smp_data;
 
-
-
-            Entry entry = new Entry(board.ZobristKey, age, smp_data,smp_key);
+            Entry entry = new Entry(board.ZobristKey, smp_data, smp_key);
             ulong index = Index(board);
-            if (entries[index].SMP_data == 0) { entriesNum++; }
+            if (entries[index].SMP_data == 0)
+                entriesNum++;
             entries[index] = entry;
 
         }
@@ -201,29 +200,14 @@ public class TranspositionTable
     {
         public readonly ulong SMP_data;
         public readonly ulong SMP_key;
-        public readonly ulong key;
-        /*
-        public readonly int value;
-        public readonly Move move;
-        public readonly byte depth;
-        public readonly byte nodeType;
-        */
-        public readonly uint age;     
-        //	public readonly byte gamePly;
+        public readonly ulong key;   
 
-        public Entry(ulong key, uint age, ulong SMP_data, ulong SMP_key)
+
+        public Entry(ulong key, ulong SMP_data, ulong SMP_key)
         {
             this.SMP_data = SMP_data;
             this.SMP_key = SMP_key;
             this.key = key;
-            /*
-            this.value = value;
-            this.depth = depth; // depth is how many ply were searched ahead from this position
-            this.nodeType = nodeType;
-            this.move = move;
-            */
-            this.age = age;
-
         }
 
         public static ulong GetData(int value, Move move, byte depth, byte nodeType)
