@@ -136,15 +136,17 @@ public class TranspositionTable
         {
             return;
         }
-        byte entryDepth = Entry.RecoverDepth(entries[Index(board)].SMP_data);
 
-        if (depth >= entryDepth)  
+        byte entryDepth = Entry.RecoverDepth(entries[Index(board)].SMP_data);
+        ulong index = Index(board);
+
+        if (entries[index].key == 0 || depth >= entryDepth || evalType == Exact)  
         {
             ulong smp_data = Entry.GetData(CorrectMateScoreForStorage(eval, numPlySearched), move, (byte)depth, (byte)evalType);
             ulong smp_key = board.ZobristKey ^ smp_data;
 
             Entry entry = new Entry(board.ZobristKey, smp_data, smp_key);
-            ulong index = Index(board);
+
             if (entries[index].SMP_data == 0)
                 entriesNum++;
             entries[index] = entry;
