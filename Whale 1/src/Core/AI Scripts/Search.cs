@@ -319,7 +319,7 @@ public class Search
             if (plyFromRoot == 0)
             {
                 threadWorkerDatas[threadIndex].bestMoveThisIteration = tTable.GetStoredMove(threadWorkerDatas[threadIndex].board);
-                threadWorkerDatas[threadIndex].bestEvalThisIteration = tTable.GetStoredScore(threadWorkerDatas[threadIndex].board);
+                threadWorkerDatas[threadIndex].bestEvalThisIteration = tTable.GetStoredScore(threadWorkerDatas[threadIndex].board, plyFromRoot);
             }
 
             threadWorkerDatas[threadIndex].searchDiagnostics.tthit++;

@@ -73,12 +73,12 @@ public class TranspositionTable
         return Move.NullMove;
     }
 
-    public int GetStoredScore(Board board)
+    public int GetStoredScore(Board board, int plyFromRoot)
     {
         ulong testKey = board.ZobristKey ^ entries[Index(board)].SMP_data;
         if (testKey == entries[Index(board)].SMP_key)
         {
-            return Entry.RecoverScore(entries[Index(board)].SMP_data);
+            return Entry.RecoverScore(entries[Index(board)].SMP_data, plyFromRoot);
         }
 
         return int.MinValue;
@@ -153,7 +153,7 @@ public class TranspositionTable
         }
     }
 
-    int CorrectMateScoreForStorage(int score, int numPlySearched)
+    static int CorrectMateScoreForStorage(int score, int numPlySearched)
     {
         if (Search.IsMateScore(score))
         {
@@ -163,7 +163,7 @@ public class TranspositionTable
         return score;
     }
 
-    int CorrectRetrievedMateScore(int score, int numPlySearched)
+    static int CorrectRetrievedMateScore(int score, int numPlySearched)
     {
         if (Search.IsMateScore(score))
         {
@@ -251,10 +251,10 @@ public class TranspositionTable
             return move;
         }
 
-        public static int RecoverScore(ulong data)
+        public static int RecoverScore(ulong data, int plyFromRoot)
         {
             int score = (int)(data & 0xFFFFFFFF);
-            return score;
+            return CorrectRetrievedMateScore(score, plyFromRoot); ;
         }
     }
 
