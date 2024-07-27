@@ -84,12 +84,6 @@ public class TranspositionTable
         return int.MinValue;
     }
 
-    public bool TryLookupEvaluation(int depth, int plyFromRoot, int alpha, int beta, out int eval)
-    {
-        eval = 0;
-        return false;
-    }
-
     public int LookupEvaluation(Board board, int depth, int plyFromRoot, int alpha, int beta)
     {
         if (!enabled)
@@ -198,19 +192,11 @@ public class TranspositionTable
         return entries[zobristKey % (ulong)entries.Length];
     }
 
-    public readonly struct Entry
+    public readonly struct Entry(ulong key, ulong SMP_data, ulong SMP_key)
     {
-        public readonly ulong SMP_data;
-        public readonly ulong SMP_key;
-        public readonly ulong key;   
-
-
-        public Entry(ulong key, ulong SMP_data, ulong SMP_key)
-        {
-            this.SMP_data = SMP_data;
-            this.SMP_key = SMP_key;
-            this.key = key;
-        }
+        public readonly ulong SMP_data = SMP_data;
+        public readonly ulong SMP_key = SMP_key;
+        public readonly ulong key = key;
 
         public static ulong GetData(int value, Move move, byte depth, byte nodeType)
         {
